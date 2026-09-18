@@ -22,10 +22,12 @@
         "name": "EntryAbility",
         "srcEntry": "./ets/entryability/EntryAbility.ets",
         "description": "$string:EntryAbility_desc",
-        "icon": "$media:app_icon",
+        "icon": "$media:app_icon_layered",
         "label": "$string:app_name",
-        "startWindowIcon": "$media:app_icon",
+        "startWindowIcon": "$media:app_icon_startwindow",
         "startWindowBackground": "$color:start_window_background",
+        // 跟随设备方向自动旋转，支持竖屏与横屏，并遵从系统旋转锁定。
+        "orientation": "auto_rotation_restricted",
         "exported": true,
         "backgroundModes": [
           "dataTransfer"
@@ -48,6 +50,9 @@
       },
       {
         "name": "ohos.permission.VIBRATE"
+      },
+      {
+        "name": "ohos.permission.DETECT_GESTURE"
       },
       {
         "name": "ohos.permission.KEEP_BACKGROUND_RUNNING"

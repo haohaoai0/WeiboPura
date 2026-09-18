@@ -2792,7 +2792,7 @@ struct ThreadList {
       Row() {
         // 返回键两态共用同一节点（位置/图标一致）：进出搜索时保持静止，避免同款图标交叉重影
         Button() {
-          SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(22, this.fontScale))
+          SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(28, this.fontScale))
         }
         .width(44).height(44)
         .backgroundColor(Theme.segGlass(this.isDark, false))
@@ -2989,7 +2989,7 @@ struct ThreadList {
     Row() {
       // 返回键两态共用同一节点（位置/图标一致）：进出搜索时保持静止，避免同款图标交叉重影
       Button() {
-        SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(22, this.fontScale))
+        SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(28, this.fontScale))
       }
       .width(44).height(44)
       .backgroundColor(Color.Transparent)

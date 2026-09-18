@@ -1,10 +1,25 @@
 {
   "app": {
-    "signingConfigs": [],
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "certpath": "C:\\Users\\Fanha\\.ohos\\config\\default_WeiboPura_GU6kwVURT6bzb2EHQHR07emoent8QXKZrv4bcj0HN-0=.cer",
+          "keyAlias": "debugKey",
+          "keyPassword": "0000001A2779C61388B80E7EC93FEA256DBDE5B74F191F43643232FD517320FD90EA176D9D62EBA9A450",
+          "profile": "C:\\Users\\Fanha\\.ohos\\config\\default_WeiboPura_GU6kwVURT6bzb2EHQHR07emoent8QXKZrv4bcj0HN-0=.p7b",
+          "signAlg": "SHA256withECDSA",
+          "storeFile": "C:\\Users\\Fanha\\.ohos\\config\\default_WeiboPura_GU6kwVURT6bzb2EHQHR07emoent8QXKZrv4bcj0HN-0=.p12",
+          "storePassword": "0000001A6E7055512820B691B8E9FADCCB4CF3BB664AB650EE490E424BBA24B56B37DBA137128025ECCE"
+        }
+      }
+    ],
     "products": [
       {
         "name": "default",
-        "compatibleSdkVersion": "26.0.0",
+        "signingConfig": "default",
+        "compatibleSdkVersion": "6.1.0(23)",
         "targetSdkVersion": "26.0.0",
         "runtimeOS": "HarmonyOS",
         "buildOption": {

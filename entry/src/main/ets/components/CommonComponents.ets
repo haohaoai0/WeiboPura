@@ -18,8 +18,9 @@
 
 import { Theme, Spacing, Radius, isDarkMode, ImmBlur, ImmMaterial, fs } from '../common/Theme';
 import { ImageCache } from '../cache/ImageCache';
-import { display } from '@kit.ArkUI';
+import { curves, display } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
+import { hdsEffect } from '@kit.UIDesignKit';
 
 const LOG_DOMAIN: number = 0x0A01;
 const TAG: string = 'TiebaImgCard';
@@ -72,6 +73,10 @@ export interface ThreadItemData {
   abstract: string;
   firstImage: string;
   images?: string[];
+  /** Optional public MP4 stream. Empty for ordinary text/image posts. */
+  videoUrl?: string;
+  /** Poster shown by the native video player while a stream prepares. */
+  videoCoverUrl?: string;
   createTime: string;
   isTop: boolean;
   isGood?: boolean;
@@ -92,7 +97,7 @@ export interface ThreadSharePayload {
  */
 @Component
 export struct LoadingView {
-  @Prop message: string = '加载中...';
+  @Prop message: string | Resource = '加载中...';
   @StorageLink('fontScale') fontScale: number = 1.0;
 
   build() {
@@ -117,7 +122,7 @@ export struct LoadingView {
  */
 @Component
 export struct EmptyView {
-  @Prop message: string = '暂无内容';
+  @Prop message: string | Resource = '暂无内容';
   @Prop icon: string = '📭';
   @BuilderParam action: () => void = this.emptyBuilder;
   @Prop actionText: string = '';
@@ -255,6 +260,8 @@ export struct ThreadCard {
     abstract: '',
     firstImage: '',
     images: [],
+    videoUrl: '',
+    videoCoverUrl: '',
     createTime: '',
     isTop: false,
     isGood: false,
@@ -267,6 +274,15 @@ export struct ThreadCard {
   onComment: (tid: string) => void = () => {};
   // 头像点击回调：由父组件(Index/ThreadList)注入实现，跳转用户主页
   onAvatarTap: (authorId: string, author: string) => void = () => {};
+  /** Parent-owned image navigation; non-Weibo callers retain their existing behavior. */
+  onImageTap: (urls: string[], index: number) => void = () => {};
+  /**
+   * 微博等非贴吧图床直接交给 ArkUI Image 加载。ImageCache 的下载策略带贴吧专用
+   * Referer/Cookie，不能用于其它内容源。
+   */
+  @Prop skipImageCache: boolean = false;
+  private videoController: VideoController = new VideoController();
+  @State videoLoadFailed: boolean = false;
 
   /**
    * 操作栏收紧判定（docs/TiebaPura阔直屏适配.md，2026-09-15 用户云调试反馈：阔直屏竖 2 列
@@ -303,6 +319,9 @@ export struct ThreadCard {
    */
   @StorageProp('cardColumns') cardColumns: number = 1;
   @State imageFailed: boolean = false;
+  /** Press feedback only affects composited properties; card layout remains stable. */
+  @State contentScale: number = 1;
+  @State contentOpacity: number = 1;
   /** 正在阶梯重试的图片 URL 集合：防 preload/onError/onComplete 多路径对同一 URL 重复启动重试阶梯 */
   private retryingUrls: Set<string> = new Set<string>();
   /**
@@ -346,6 +365,10 @@ export struct ThreadCard {
    *     阶梯序列 [0, 2s, 8s, 30s] 覆盖 0~40s 的 CDN 同步窗口。
    */
   private async retryOrFail(u: string | undefined): Promise<void> {
+    if (this.skipImageCache) {
+      this.imageFailed = true;
+      return;
+    }
     if (!u) {
       this.imageFailed = true;
       return;
@@ -421,6 +444,9 @@ export struct ThreadCard {
 
   /** 通过 ImageCache（带贴吧 UA + Referer + Cookie）预下载图片到沙箱缓存 */
   private async preloadImages(): Promise<void> {
+    if (this.skipImageCache) {
+      return;
+    }
     const imgs: string[] | undefined = this.item.images;
     if (!imgs || imgs.length === 0) {
       ImageCache.debugLog(`card preload SKIP imgs-empty tid=${this.item.tid}`);
@@ -475,6 +501,17 @@ export struct ThreadCard {
       return Math.min(imgs.length, 9);
     }
     return 0;
+  }
+
+  private updateContentPress(event?: TouchEvent): void {
+    if (event === undefined) {
+      return;
+    }
+    const pressed: boolean = event.type === TouchType.Down;
+    this.getUIContext().animateTo({ curve: curves.interpolatingSpring(0, 1, 260, 28) }, (): void => {
+      this.contentScale = pressed ? 0.985 : 1;
+      this.contentOpacity = pressed ? 0.94 : 1;
+    });
   }
 
   build() {
@@ -555,6 +592,15 @@ export struct ThreadCard {
             .padding({ left: 16, right: 16, top: 6 })
         }
 
+        // 视频优先用系统 Video 播放器承载，避免将视频帖误当作静态封面图。
+        if (this.getItem().videoUrl !== undefined && this.getItem().videoUrl!.length > 0) {
+          Column() {
+            this.VideoPlayer()
+          }
+            .width('100%')
+            .padding({ left: 16, right: 16, top: 10 })
+        }
+
         // 图片区域
         if (this.getImageCount() > 0) {
           Column() {
@@ -588,6 +634,12 @@ export struct ThreadCard {
       }
       .width('100%')
       .hitTestBehavior(HitTestMode.Default)
+      .scale({ x: this.contentScale, y: this.contentScale })
+      .opacity(this.contentOpacity)
+      .renderGroup(true)
+      .onTouch((event?: TouchEvent): void => {
+        this.updateContentPress(event);
+      })
       .onClick(() => {
         // 点击卡片上半部分（内容区）跳帖子详情；底部三胶囊不在此区域，避免事件互吞
         const tid = this.getItem().tid;
@@ -617,6 +669,7 @@ export struct ThreadCard {
         .backgroundBlurStyle(BlurStyle.Regular, { scale: 0.85 })
         .border({ width: 0.5, color: Theme.manualGlassBorder() })
         .shadow(Theme.glassShadowStyle())
+        .backgroundEffect(ImmBlur.cardAction())
         .systemMaterial(ImmMaterial.cardAction())
         .onClick(() => {
           const payload: ThreadSharePayload = {
@@ -647,6 +700,7 @@ export struct ThreadCard {
         .backgroundBlurStyle(BlurStyle.Regular, { scale: 0.85 })
         .border({ width: 0.5, color: Theme.manualGlassBorder() })
         .shadow(Theme.glassShadowStyle())
+        .backgroundEffect(ImmBlur.cardAction())
         .systemMaterial(ImmMaterial.cardAction())
         .onClick(() => {
           const tid = this.getItem().tid;
@@ -678,6 +732,7 @@ export struct ThreadCard {
         .backgroundBlurStyle(BlurStyle.Regular, { scale: 0.85 })
         .border({ width: 0.5, color: Theme.manualGlassBorder() })
         .shadow(Theme.glassShadowStyle())
+        .backgroundEffect(ImmBlur.cardAction())
         .systemMaterial(ImmMaterial.cardAction())
         .onClick(() => {
           const tid = this.getItem().tid;
@@ -698,7 +753,13 @@ export struct ThreadCard {
     // 注：卡内「分享/评论/点赞」胶囊圆角 18、距卡片底 14，严格同心应为 18 + 14 = 32；
     // 26 是按统一视觉口径取的值（比 32 略收敛，胶囊与外角不再严格同心，观感更克制）。
     // 操作栏内边距与三枚胶囊尺寸一律不动。
-    .borderRadius(26)
+    .borderRadius(Radius.postCard)
+    // HDS 边框与内容受光：卡片跟随手指触点产生原生光感，不改变卡片尺寸或列表排版。
+    .visualEffect(new hdsEffect.HdsEffectBuilder()
+      .pointLight({
+        illuminatedType: hdsEffect.PointLightIlluminatedType.BORDER_CONTENT
+      })
+      .buildEffect())
   }
 
   /**
@@ -743,6 +804,49 @@ export struct ThreadCard {
         this.retryOrFail(img);
       }
     }
+  }
+
+  @Builder
+  VideoPlayer() {
+    Stack() {
+      Video({
+        src: this.getItem().videoUrl ?? '',
+        previewUri: this.getItem().videoCoverUrl ?? '',
+        controller: this.videoController
+      })
+        .width('100%')
+        .height(220)
+        .controls(true)
+        .autoPlay(false)
+        .loop(false)
+        .objectFit(ImageFit.Contain)
+        .backgroundColor(Color.Transparent)
+        .borderRadius(Radius.md)
+        .onError((): void => {
+          this.videoLoadFailed = true;
+        })
+      if (this.videoLoadFailed) {
+        Column({ space: 8 }) {
+          Text('视频暂时无法播放')
+            .fontSize(fs(13, this.fontScale))
+            .fontColor(Color.White)
+          Text('请稍后重试')
+            .fontSize(fs(12, this.fontScale))
+            .fontColor('#CCFFFFFF')
+        }
+        .width('100%')
+        .height(220)
+        .justifyContent(FlexAlign.Center)
+        .alignItems(HorizontalAlign.Center)
+        .backgroundColor('#99000000')
+        .borderRadius(Radius.md)
+      }
+    }
+    .width('100%')
+    .height(220)
+    .backgroundColor(Color.Black)
+    .borderRadius(Radius.md)
+    .clip(true)
   }
 
   @Builder
@@ -791,6 +895,9 @@ export struct ThreadCard {
                 if (!event) return;
                 this.handleSingleImageComplete(event.loadingStatus, event.width, event.height);
               })
+              .onClick(() => {
+                this.onImageTap(this.getItem().images!, 0);
+              })
           } else {
             Image(this.resolveImgUrl(this.getItem().images![0]))
               .width('100%')
@@ -803,6 +910,9 @@ export struct ThreadCard {
               .onComplete((event) => {
                 if (!event) return;
                 this.handleSingleImageComplete(event.loadingStatus, event.width, event.height);
+              })
+              .onClick(() => {
+                this.onImageTap(this.getItem().images!, 0);
               })
           }
         } else {
@@ -829,6 +939,9 @@ export struct ThreadCard {
                       if (!event) return;
                       this.handleGridImageComplete(img, event.loadingStatus, event.width, event.height);
                     })
+                    .onClick(() => {
+                      this.onImageTap(this.getItem().images!, idx);
+                    })
                 } else {
                   Image(this.resolveImgUrl(img))
                     .width('100%')
@@ -841,6 +954,9 @@ export struct ThreadCard {
                     .onComplete((event) => {
                       if (!event) return;
                       this.handleGridImageComplete(img, event.loadingStatus, event.width, event.height);
+                    })
+                    .onClick(() => {
+                      this.onImageTap(this.getItem().images!, idx);
                     })
                 }
               }

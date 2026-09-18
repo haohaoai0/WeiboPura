@@ -31,6 +31,7 @@
 /tools/
 /ui_*.xml
 /_h.txt
+/.tieba-reference-zip/
 
 # 本机签名材料（含密钥库口令与绝对路径，绝不入库）。
 # 正常位置是 tools/signing.local.json（已由上面的 /tools/ 覆盖），这里兜住「被放到工程根」的情况。

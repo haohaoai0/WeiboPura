@@ -4693,7 +4693,7 @@ export struct FavoriteTab {
             .onChange((v: string) => { this.searchKeyword = v; })
           SymbolGlyph($r('sys.symbol.chevron_left'))
             .fontColor([$r('sys.color.icon_primary')])
-            .fontSize(fs(22, this.fontScale))
+            .fontSize(fs(28, this.fontScale))
             .margin({ left: 12 })
             .hitTestBehavior(HitTestMode.Block)
             .accessibilityText('退出搜索')
@@ -4705,7 +4705,7 @@ export struct FavoriteTab {
         Button() {
           SymbolGlyph($r('sys.symbol.chevron_left'))
             .fontColor([$r('sys.color.icon_primary')])
-            .fontSize(fs(22, this.fontScale))
+            .fontSize(fs(28, this.fontScale))
         }
         .width(44)
         .height(44)
@@ -4729,7 +4729,7 @@ export struct FavoriteTab {
         Button() {
           SymbolGlyph($r('sys.symbol.chevron_left'))
             .fontColor([$r('sys.color.icon_primary')])
-            .fontSize(fs(22, this.fontScale))
+            .fontSize(fs(28, this.fontScale))
         }
         .width(44)
         .height(44)
@@ -4794,7 +4794,7 @@ export struct FavoriteTab {
         Button() {
           SymbolGlyph($r('sys.symbol.chevron_left'))
             .fontColor([$r('sys.color.icon_primary')])
-            .fontSize(fs(22, this.fontScale))
+            .fontSize(fs(28, this.fontScale))
         }
         .width(44)
         .height(44)
@@ -5000,7 +5000,7 @@ export struct FavoriteTab {
             .onChange((v: string) => { this.searchKeyword = v; })
           SymbolGlyph($r('sys.symbol.chevron_left'))
             .fontColor([$r('sys.color.icon_primary')])
-            .fontSize(fs(22, this.fontScale))
+            .fontSize(fs(28, this.fontScale))
             .margin({ left: 12 })
             .hitTestBehavior(HitTestMode.Block)
             .accessibilityText('退出搜索')
@@ -5009,7 +5009,7 @@ export struct FavoriteTab {
         .width('100%')
         .height(44) // 与旧 44 圆钮同高 → 槽位高度 98 不变
       } else if (this.editMode) {
-        this.FavSlotCircleBtn($r('sys.symbol.chevron_left'), 22, '退出编辑', { right: Spacing.sm }, (): void => { this.exitEditMode(); })
+        this.FavSlotCircleBtn($r('sys.symbol.chevron_left'), 28, '退出编辑', { right: Spacing.sm }, (): void => { this.exitEditMode(); })
 
         Text(`已选 ${this.selectedTids.length} 项`)
           .fontSize(fs(18, this.fontScale))
@@ -5019,7 +5019,7 @@ export struct FavoriteTab {
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .layoutWeight(1)
       } else if (this.selectedCategoryId.length > 0) {
-        this.FavSlotCircleBtn($r('sys.symbol.chevron_left'), 22, '返回', { right: Spacing.sm }, (): void => {
+        this.FavSlotCircleBtn($r('sys.symbol.chevron_left'), 28, '返回', { right: Spacing.sm }, (): void => {
           this.selectedCategoryId = '';
           lastSelectedCategoryId = '';
         })
@@ -5039,7 +5039,7 @@ export struct FavoriteTab {
           this.selectedTids = [];
         })
       } else if (this.selectedForum.length > 0) {
-        this.FavSlotCircleBtn($r('sys.symbol.chevron_left'), 22, '返回', { right: Spacing.sm }, (): void => { this.selectedForum = ''; })
+        this.FavSlotCircleBtn($r('sys.symbol.chevron_left'), 28, '返回', { right: Spacing.sm }, (): void => { this.selectedForum = ''; })
 
         Text(this.selectedForum)
           .fontSize(fs(22, this.fontScale))

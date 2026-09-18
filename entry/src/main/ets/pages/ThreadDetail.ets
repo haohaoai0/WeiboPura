@@ -43,6 +43,17 @@ enum LoadState {
 }
 
 /**
+ * 图片一镜到底的曲线预设。修改 SHARED_IMAGE_SPRING_STYLE 即可切换，
+ * 不会改变缩略图、详情页或预览页的任何布局参数。
+ */
+enum SharedImageSpringStyle {
+  LIVELY, MODERATE, ELEGANT,
+}
+
+const SHARED_IMAGE_TRANSITION_DURATION: number = 420;
+const SHARED_IMAGE_SPRING_STYLE: SharedImageSpringStyle = SharedImageSpringStyle.MODERATE;
+
+/**
  * 顶部满宽渐显带高度（vp）：顶栏「状态栏让位 44」+「吧名胶囊高 44」= 88，
  * 即渐显终点正好落在吧名胶囊下沿——胶囊及以上区域内容逐级隐去，胶囊下方立即完全清晰。
  * 若后续调整顶栏 padding/胶囊高度，此处必须同步。
@@ -546,6 +557,13 @@ struct ThreadDetail {
   // 骨架屏→内容交叉淡入淡出（方案A）：内容初始透明淡入，骨架屏淡出后由 loadState 切换移除
   @State contentOpacity: number = 0.0;
   @State skeletonOpacity: number = 1.0;
+  /** 仅在路由前短暂挂载的共享元素目标节点；原 ImagePreview 的业务能力保持不变。 */
+  @State sharedImagePreviewVisible: boolean = false;
+  @State sharedImagePreviewUrl: string = '';
+  @State sharedImagePreviewTransitionId: string = '';
+  @State sharedImagePreviewUrls: string[] = [];
+  @State sharedImagePreviewIndex: number = 0;
+  private openingSharedImagePreview: boolean = false;
   /**
    * 形态切换平滑化（2026-09-13）：缓存 `splitMode()` 的**结果**，只在真正跨形态（横↔竖）时
    * 写一次 —— 避免旋转过程中 `currentWidth` / `pageHeight` 每帧变化导致布局分支反复求值、
@@ -1170,6 +1188,9 @@ struct ThreadDetail {
       if (this.showLinkDialog) {
         this.LinkConfirmDialog()
       }
+      if (this.sharedImagePreviewVisible) {
+        this.SharedImagePreviewStage()
+      }
       // 跳转官方贴吧确认弹窗已迁到系统 CustomDialog（见宿主 jumpDialogController / JumpTiebaDialogCard）：
       // 原自绘浮层挂在页面 body 内，systemMaterial 必然判 out of scope，只有系统弹窗宿主才吃官方沉浸材质
     }
@@ -1604,7 +1625,7 @@ struct ThreadDetail {
     Stack() {
       Row() {
         Button() {
-          SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(24, this.fontScale))
+          SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(28, this.fontScale))
         }
         .width(44)
         .height(44)
@@ -1663,7 +1684,7 @@ struct ThreadDetail {
     Stack() {
       Row() {
         Button() {
-          SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(24, this.fontScale))
+          SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(28, this.fontScale))
         }
         .width(44)
         .height(44)
@@ -3033,6 +3054,9 @@ struct ThreadDetail {
   onPageShow(): void {
     this.fontSizeTick++;
     this.openingSubPost = false;
+    // 从原有 ImagePreview 返回后移除过渡舞台；缩略图仍处于原来的自然布局位置。
+    this.sharedImagePreviewVisible = false;
+    this.openingSharedImagePreview = false;
     this.isDark = isDarkMode();
   }
 
@@ -3122,6 +3146,107 @@ struct ThreadDetail {
     return (isLargeFoldDevice() || isPuraXMaxDevice()) ? 72 : 120;
   }
 
+  /**
+   * 每个缩略图拥有稳定且唯一的绑定 id。未被点击的节点没有配对目标，
+   * 因而不会参与转场；被点击节点与舞台中的全屏 Image 恰好组成一对。
+   */
+  private sharedImageTransitionId(images: string[], idx: number): string {
+    const globalIndex: number = this.getImageGlobalOffset(images) + idx;
+    return `thread-detail-image-${this.tid}-${globalIndex}`;
+  }
+
+  private openSharedImagePreview(allImages: string[], index: number, transitionId: string): void {
+    if (allImages.length === 0 || index < 0 || index >= allImages.length || this.openingSharedImagePreview) {
+      return;
+    }
+    this.openingSharedImagePreview = true;
+    this.sharedImagePreviewUrls = allImages;
+    this.sharedImagePreviewIndex = index;
+    this.sharedImagePreviewUrl = allImages[index];
+    this.sharedImagePreviewTransitionId = transitionId;
+    this.startSharedImageTransition();
+  }
+
+  /** geometryTransition 的目标节点在每条 animateTo 闭包内上树，满足官方配对时机要求。 */
+  private startSharedImageTransition(): void {
+    if (SHARED_IMAGE_SPRING_STYLE === SharedImageSpringStyle.LIVELY) {
+      this.getUIContext().animateTo({
+        duration: SHARED_IMAGE_TRANSITION_DURATION,
+        curve: curves.interpolatingSpring(0, 1.4, 200, 20),
+        onFinish: (): void => { this.openImagePreviewAfterTransition(); }
+      }, (): void => {
+        this.sharedImagePreviewVisible = true;
+      });
+      return;
+    }
+    if (SHARED_IMAGE_SPRING_STYLE === SharedImageSpringStyle.ELEGANT) {
+      this.getUIContext().animateTo({
+        duration: SHARED_IMAGE_TRANSITION_DURATION,
+        curve: curves.interpolatingSpring(0, 0.5, 167, 30),
+        onFinish: (): void => { this.openImagePreviewAfterTransition(); }
+      }, (): void => {
+        this.sharedImagePreviewVisible = true;
+      });
+      return;
+    }
+    this.getUIContext().animateTo({
+      duration: SHARED_IMAGE_TRANSITION_DURATION,
+      curve: curves.springMotion(),
+      onFinish: (): void => { this.openImagePreviewAfterTransition(); }
+    }, (): void => {
+      this.sharedImagePreviewVisible = true;
+    });
+  }
+
+  /** 转场结束后复用原有图片预览路由，保留其滑动、缩放、保存和流式补页能力。 */
+  private openImagePreviewAfterTransition(): void {
+    this.getUIContext().getRouter().pushUrl({
+      url: 'pages/ImagePreview',
+      params: {
+        urls: this.sharedImagePreviewUrls,
+        index: this.sharedImagePreviewIndex,
+        tid: this.tid,
+        sortType: this.sortType,
+        seeLz: this.seeLz,
+        forumId: this.forumId,
+        commentRn: this.commentRn,
+        loadedPage: this.currentPage,
+        totalPage: this.totalFloorPage,
+        sharedElementReady: true
+      }
+    }).then((): void => {
+      this.openingSharedImagePreview = false;
+    }).catch((): void => {
+      this.openingSharedImagePreview = false;
+      this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseOut }, (): void => {
+        this.sharedImagePreviewVisible = false;
+      });
+      this.getUIContext().getPromptAction().showToast({ message: '图片预览打开失败，请稍后重试' });
+    });
+  }
+
+  /** 共享元素的全屏目标：尺寸由父级自然填满，不添加 translate / scale / position 偏移。 */
+  @Builder
+  SharedImagePreviewStage() {
+    Stack() {
+      Column()
+        .width('100%')
+        .height('100%')
+        .backgroundColor(Color.Black)
+        .transition(TransitionEffect.OPACITY)
+      Image(this.sharedImagePreviewUrl)
+        .width('100%')
+        .height('100%')
+        .objectFit(ImageFit.Contain)
+        .geometryTransition(this.sharedImagePreviewTransitionId)
+        .transition(TransitionEffect.OPACITY)
+    }
+    .width('100%')
+    .height('100%')
+    .zIndex(200)
+    .hitTestBehavior(HitTestMode.None)
+  }
+
   @Builder
   ImageGrid(images: string[], capMaxWidth: boolean = true) {
     Grid() {
@@ -3131,6 +3256,8 @@ struct ThreadDetail {
             ThreadGridImage({ src: img, isDark: this.isDark })
               .width('100%')
               .height(this.gridCellHeight())
+              .geometryTransition(this.sharedImageTransitionId(images, idx))
+              .transition(TransitionEffect.OPACITY)
           }
           .width('100%')
           .height(this.gridCellHeight())
@@ -3141,22 +3268,11 @@ struct ThreadDetail {
             // （tid/sortType/seeLz/forumId/commentRn）继续拉取后续楼层页并追加图片，
             // 使「未加载楼层的图片」也能直接滑到，无需先滚回列表加载楼层。
             // loadedPage/totalPage 用于给出补页游标与上限（详见 ImagePreview.ets 的流式补页说明）。
-            this.getUIContext().getRouter().pushUrl({
-              url: 'pages/ImagePreview',
-              params: {
-                urls: allImages,
-                index: offset + idx,
-                tid: this.tid,
-                sortType: this.sortType,
-                seeLz: this.seeLz,
-                forumId: this.forumId,
-                commentRn: this.commentRn,
-                loadedPage: this.currentPage,
-                totalPage: this.totalFloorPage
-              }
-            }).catch(() => {
-              this.getUIContext().getPromptAction().showToast({ message: '图片预览打开失败，请稍后重试' });
-            });
+            this.openSharedImagePreview(
+              allImages,
+              offset + idx,
+              this.sharedImageTransitionId(images, idx)
+            );
           })
         }
       }, (img: string, idx: number) => img)

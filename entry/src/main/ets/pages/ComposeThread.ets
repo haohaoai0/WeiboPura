@@ -90,7 +90,7 @@ struct ComposeThread {
       Row({ space: Spacing.sm }) {
         Button() {
           Row({ space: 3 }) {
-            SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(24, this.fontScale))
+            SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(28, this.fontScale))
             Text('返回').fontSize(fs(13, this.fontScale)).fontColor($r('sys.color.font_primary'))
           }
         }

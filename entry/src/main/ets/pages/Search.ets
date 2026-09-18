@@ -1191,7 +1191,7 @@ struct GlobalQueryPage {
           Row() {
             SymbolGlyph($r('sys.symbol.chevron_left'))
               .fontColor([$r('sys.color.icon_primary')])
-              .fontSize(fs(20, this.fontScale))
+              .fontSize(fs(28, this.fontScale))
           }
           .width('100%')
           .height('100%')
@@ -1304,7 +1304,7 @@ struct GlobalQueryPage {
           Row() {
             SymbolGlyph($r('sys.symbol.chevron_left'))
               .fontColor([$r('sys.color.icon_primary')])
-              .fontSize(fs(20, this.fontScale))
+              .fontSize(fs(28, this.fontScale))
           }
           .width('100%')
           .height('100%')

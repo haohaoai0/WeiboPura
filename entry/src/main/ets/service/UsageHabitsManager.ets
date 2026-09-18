@@ -243,7 +243,7 @@ export class UsageHabitsManager {
  *   绝不把不该锁的设备锁成竖屏。
  * - 关闭 = PORTRAIT（显式锁竖屏，而非「不干预」）：阔直屏走 module.json5 默认 unspecified
  *   跟随系统开关，用户系统开关若为开，不干预等于开关无效。
- * - 未关闭 = AUTO_ROTATION（回到既有的主动解锁）。
+ * - 未关闭 = AUTO_ROTATION_RESTRICTED（允许旋转，但遵从系统旋转锁定）。
  * - mainWindow 未就绪时静默跳过：冷启动首帧方向由 EntryAbility 同步读 prefs 兜住。
  */
 export function applyAutoRotateOff(off: boolean): void {
@@ -257,7 +257,7 @@ export function applyAutoRotateOff(off: boolean): void {
     }
     mainWindow.setPreferredOrientation(off
       ? window.Orientation.PORTRAIT
-      : window.Orientation.AUTO_ROTATION)
+      : window.Orientation.AUTO_ROTATION_RESTRICTED)
       .catch((err: Error) => {
         hilog.error(0x0000, TAG, 'setPreferredOrientation(autoRotateOff=%{public}s) failed: %{public}s',
           off ? '1' : '0', JSON.stringify(err));

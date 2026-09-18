@@ -411,7 +411,7 @@ struct PersonalizedPage {
       Button() {
         SymbolGlyph($r('sys.symbol.chevron_left'))
           .fontColor([$r('sys.color.icon_primary')])
-          .fontSize(fs(22, this.fontScale))
+          .fontSize(fs(28, this.fontScale))
       }
       .width(44)
       .height(44)

@@ -159,7 +159,7 @@ struct Message {
       // 悬浮顶栏（内容可穿过）
       Row({ space: Spacing.sm }) {
         Button() {
-          SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(22, this.fontScale))
+          SymbolGlyph($r('sys.symbol.chevron_left')).fontColor([$r('sys.color.icon_primary')]).fontSize(fs(28, this.fontScale))
         }
         .width(44)
         .height(44)

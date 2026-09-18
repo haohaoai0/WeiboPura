@@ -24,10 +24,18 @@ import { Theme, setDarkMode as applyThemeDarkMode, initDarkMode, syncDarkFromCon
 import { UsageHabitsManager } from '../service/UsageHabitsManager';
 import { CacheManager, STORE_NAME } from '../cache/CacheManager';
 import { CACHE_KEY } from '../common/Constants';
+import { AppSettingsStore } from '../service/AppSettingsStore';
+import { WEIBO_BREAKPOINT_KEY, WeiboResponsiveLayout } from '../common/WeiboNavigationLayout';
 
 const TAG: string = 'EntryAbility';
+const STATUS_BAR_HEIGHT_KEY: string = 'weibo.status_bar_height';
+const NAVIGATION_INDICATOR_HEIGHT_KEY: string = 'weibo.navigation_indicator_height';
+const TOP_RECT_HEIGHT_KEY: string = 'weibo.top_rect_height';
 
 export default class EntryAbility extends UIAbility {
+  /** Window whose size and avoid-area listeners are owned by this Ability. */
+  private observedMainWindow: window.Window | null = null;
+
   onCreate(want: Want, launchParam: AbilityConstant.LaunchParam): void {
     hilog.info(0x0000, TAG, 'Ability onCreate');
     // 关键时序：在首帧渲染前 fire-and-forget 异步把 Application Configuration 同步到 manual 值。
@@ -74,7 +82,7 @@ export default class EntryAbility extends UIAbility {
     // $r('sys.color.font_primary') / $r('sys.color.icon_primary') 等系统反色资源）才会自动翻档。
     // 必须写在 loadContent 之前——页面 aboutToAppear 里就可能读取它。
     AppStorage.setOrCreate<common.UIAbilityContext>('abilityContext', this.context);
-    // 生产入口：Index.ets（五 Tab 宿主壳，首页/进吧/收藏/消息/我的）
+    // 生产入口：Index.ets（微博客户端宿主壳：首页 / 说明 / 我的）
     windowStage.loadContent('pages/Index', async (err) => {
       if (err.code) {
         hilog.error(0x0000, TAG, 'Failed to load content: %{public}s', JSON.stringify(err));
@@ -106,24 +114,23 @@ export default class EntryAbility extends UIAbility {
           hilog.error(0x0000, TAG, 'Splash window bg setup failed: %{public}s', JSON.stringify(splashError));
         }
         await mainWindow.setWindowLayoutFullScreen(true);
-        // 阔直屏 / 大折叠展开态：解锁自动旋转（docs/TiebaPura阔直屏适配.md §2.4、docs/TiebaPura大折叠适配.md §三）。
-        // module.json5 未锁方向（默认 unspecified 跟随系统自动旋转开关），而用户系统开关多半
-        // 是关的 → 大屏形态下永远竖屏、横屏列数不可达。AUTO_ROTATION = 跟随重力、
-        // 不受系统开关限制；非大屏设备（含折叠态）不进此分支，回归默认 unspecified 行为。
+        this.observeWindowAvoidAreas(mainWindow);
+        // 阔直屏 / 大折叠展开态：允许自动旋转（docs/TiebaPura阔直屏适配.md §2.4、docs/TiebaPura大折叠适配.md §三）。
+        // AUTO_ROTATION_RESTRICTED 跟随重力，但遵从系统的旋转锁定开关。
         if (isWideBarDevice() || isLargeFoldDevice()) {
           // 阔直屏**直板**额外受「关闭自动旋转」开关约束（设置-使用习惯，仅该形态显示该开关）：
-          // 开关打开 → 显式锁 PORTRAIT；未打开 → AUTO_ROTATION（原行为）。
-          // Pura X / Pura X Max 展开、大折叠展开都不在 isWideBarFlatDevice() 内 → 恒走 AUTO_ROTATION，
-          // 与本次改动前逐字节一致。
+          // 开关打开 → 显式锁 PORTRAIT；未打开 → AUTO_ROTATION_RESTRICTED。
+          // Pura X / Pura X Max 展开、大折叠展开都不在 isWideBarFlatDevice() 内 →
+          // 恒走受系统旋转锁定控制的自动旋转。
           // 开关值取自上方 splash 段的同步读（bootAutoRotateOff）：UsageHabitsManager.init 在下方
           // await 才执行，若等它则窗口已按横屏渲染一帧，关闭旋转的设备会先横后竖地闪一下。
           const lockPortrait: boolean = isWideBarFlatDevice() && bootAutoRotateOff;
           const targetOrientation: window.Orientation = lockPortrait
             ? window.Orientation.PORTRAIT
-            : window.Orientation.AUTO_ROTATION;
+            : window.Orientation.AUTO_ROTATION_RESTRICTED;
           mainWindow.setPreferredOrientation(targetOrientation).catch((err: Error) => {
             hilog.error(0x0000, TAG, 'setPreferredOrientation(%{public}s) failed: %{public}s',
-              lockPortrait ? 'PORTRAIT' : 'AUTO_ROTATION', JSON.stringify(err));
+              lockPortrait ? 'PORTRAIT' : 'AUTO_ROTATION_RESTRICTED', JSON.stringify(err));
           });
         }
         // 缓存主窗口：Theme.setDarkMode 切换深色时要同步状态栏内容色，避免每次异步 getLastWindow
@@ -132,6 +139,9 @@ export default class EntryAbility extends UIAbility {
         // 注意：Configuration 的 setColorMode 已在 onCreate fire-and-forget 里做了，
         // 这里不再调 setColorMode，避免 setColorMode 异步窗口与 onConfigurationUpdate 竞态。
         await UsageHabitsManager.getInstance().init(this.context);
+        // Language must be restored after loadContent has completed. This mirrors
+        // HarmonyX's ApplicationContext timing and lets resource qualifiers take effect.
+        await AppSettingsStore.getInstance().restoreLanguage(this.context);
         const followSys: boolean = UsageHabitsManager.getInstance().isFollowSystemDark();
         const sysDark: boolean =
           this.context.config.colorMode === ConfigurationConstant.ColorMode.COLOR_MODE_DARK;
@@ -174,6 +184,56 @@ export default class EntryAbility extends UIAbility {
 
   onWindowStageDestroy(): void {
     hilog.info(0x0000, TAG, 'Ability onWindowStageDestroy');
+    const mainWindow: window.Window | null = this.observedMainWindow;
+    this.observedMainWindow = null;
+    if (mainWindow === null) {
+      return;
+    }
+    try {
+      mainWindow.off('windowSizeChange');
+      mainWindow.off('avoidAreaChange');
+    } catch (error) {
+      hilog.warn(0x0000, TAG, 'Unable to remove window listeners: %{public}s', JSON.stringify(error));
+    }
+  }
+
+  /** Keep routed pages aligned with the real system cutout and navigation indicator. */
+  private observeWindowAvoidAreas(mainWindow: window.Window): void {
+    try {
+      this.observedMainWindow = mainWindow;
+      const uiContext: UIContext = mainWindow.getUIContext();
+      const systemAvoidArea: window.AvoidArea = mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_SYSTEM);
+      const navigationAvoidArea: window.AvoidArea =
+        mainWindow.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
+      AppStorage.setOrCreate<number>(TOP_RECT_HEIGHT_KEY, systemAvoidArea.topRect.height);
+      AppStorage.setOrCreate<number>(STATUS_BAR_HEIGHT_KEY, uiContext.px2vp(systemAvoidArea.topRect.height));
+      AppStorage.setOrCreate<number>(NAVIGATION_INDICATOR_HEIGHT_KEY,
+        uiContext.px2vp(navigationAvoidArea.bottomRect.height));
+      const windowRect: window.Rect = mainWindow.getWindowProperties().windowRect;
+      this.updateResponsiveState(uiContext, windowRect.width);
+      mainWindow.on('windowSizeChange', (windowSize: window.Size): void => {
+        this.updateResponsiveState(uiContext, windowSize.width);
+      });
+      mainWindow.on('avoidAreaChange', (avoidAreaOption) => {
+        if (avoidAreaOption.type === window.AvoidAreaType.TYPE_SYSTEM) {
+          AppStorage.setOrCreate<number>(TOP_RECT_HEIGHT_KEY, avoidAreaOption.area.topRect.height);
+          AppStorage.setOrCreate<number>(STATUS_BAR_HEIGHT_KEY,
+            uiContext.px2vp(avoidAreaOption.area.topRect.height));
+        } else if (avoidAreaOption.type === window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR) {
+          AppStorage.setOrCreate<number>(NAVIGATION_INDICATOR_HEIGHT_KEY,
+            uiContext.px2vp(avoidAreaOption.area.bottomRect.height));
+        }
+      });
+    } catch (error) {
+      hilog.error(0x0000, TAG, 'Unable to observe window avoid areas: %{public}s', JSON.stringify(error));
+    }
+  }
+
+  /** Re-evaluate the split-navigation breakpoint for rotation, fold, and window resize. */
+  private updateResponsiveState(uiContext: UIContext, windowWidthPx: number): void {
+    const widthVp: number = uiContext.px2vp(windowWidthPx);
+    const breakpoint: string = WeiboResponsiveLayout.breakpointForWidth(widthVp);
+    AppStorage.setOrCreate<string>(WEIBO_BREAKPOINT_KEY, breakpoint);
   }
 
   onForeground(): void {

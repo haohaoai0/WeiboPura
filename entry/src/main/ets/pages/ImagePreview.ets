@@ -73,6 +73,9 @@ struct ImagePreview {
   @State zoomScale: number = 1;
   @State panX: number = 0;
   @State panY: number = 0;
+  /** Route-safe preview entrance/exit: it never depends on a retained list item's coordinates. */
+  @State previewOpacity: number = 0;
+  @State previewScale: number = 0.96;
 
   private pinchBaseScale: number = 1;
   private pinchBasePanX: number = 0;
@@ -84,6 +87,7 @@ struct ImagePreview {
   private panBaseX: number = 0;
   private panBaseY: number = 0;
   private dragReady: boolean = false;
+  private isClosing: boolean = false;
   private context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
 
   aboutToAppear(): void {
@@ -118,6 +122,17 @@ struct ImagePreview {
     // 否则首屏就是"最后一张"、要等用户先滑动一次才触发
     if (this.currentIndex >= this.urls.length - 3) {
       this.appendStreamPage();
+    }
+    const sharedElementReady: boolean = params !== undefined && `${params.sharedElementReady}` === 'true';
+    if (sharedElementReady) {
+      // ThreadDetail 的同树共享元素舞台已完成到全屏的最后一帧；这里直接承接，避免二次缩放。
+      this.previewOpacity = 1;
+      this.previewScale = 1;
+    } else {
+      this.getUIContext().animateTo({ duration: 220, curve: Curve.EaseOut }, (): void => {
+        this.previewOpacity = 1;
+        this.previewScale = 1;
+      });
     }
   }
 
@@ -198,7 +213,9 @@ struct ImagePreview {
                         .onActionStart((event: GestureEvent) => { this.startPan(event); })
                         .onActionUpdate((event: GestureEvent) => { this.updatePan(event); })
                         .onActionEnd((event: GestureEvent) => { this.finishPan(event); }),
-                      TapGesture({ count: 1 }).onAction(() => { this.showControls = !this.showControls; })
+                      TapGesture({ count: 1 }).onAction(() => { this.showControls = !this.showControls; }),
+                      LongPressGesture({ fingers: 1, repeat: false, duration: 350 })
+                        .onAction((): void => { this.showSaveControls(); })
                     )
                   )
               } else {
@@ -218,7 +235,9 @@ struct ImagePreview {
                         .onActionEnd(() => { if (idx === this.currentIndex) this.finishZoom(); }),
                       TapGesture({ count: 1 }).onAction(() => {
                         this.showControls = !this.showControls;
-                      })
+                      }),
+                      LongPressGesture({ fingers: 1, repeat: false, duration: 350 })
+                        .onAction((): void => { this.showSaveControls(); })
                     )
                   )
               }
@@ -294,7 +313,7 @@ struct ImagePreview {
             .backgroundColor(Theme.glassControlSolid(true))
             .border({ width: 0.5, color: Theme.glassControlLine(true) })
             .shadow({ radius: 12, color: '#40000000', offsetY: 2 })
-            .onClick(() => { this.getUIContext().getRouter().back(); })
+            .onClick(() => { this.closePreview(); })
 
             // 保存改用系统安全控件 SaveButton：点击即临时获得图库写入授权（约 10 秒），
             // 因此无需在 module.json5 声明 READ/WRITE_IMAGEVIDEO，也无需运行时弹权限申请。
@@ -353,10 +372,38 @@ struct ImagePreview {
     .width('100%')
     .height('100%')
     .backgroundColor(Color.Black)
+    .opacity(this.previewOpacity)
+    .scale({ x: this.previewScale, y: this.previewScale })
+    .renderGroup(true)
   }
 
   private getScale(idx: number): number {
     return idx === this.currentIndex ? this.zoomScale : 1;
+  }
+
+  private closePreview(): void {
+    if (this.isClosing) {
+      return;
+    }
+    this.isClosing = true;
+    this.getUIContext().animateTo({ duration: 160, curve: Curve.EaseIn }, (): void => {
+      this.previewOpacity = 0;
+      this.previewScale = 0.98;
+    });
+    setTimeout((): void => {
+      this.getUIContext().getRouter().back();
+    }, 160);
+  }
+
+  /**
+   * Gallery writes require a user-activated SaveButton security component.
+   * Long press therefore reveals that component instead of attempting an
+   * unauthorized background write; one tap on the visible save icon completes
+   * the platform-authorized save operation.
+   */
+  private showSaveControls(): void {
+    this.showControls = true;
+    this.getUIContext().getPromptAction().showToast({ message: '点击右下角保存按钮即可保存到相册' });
   }
 
   private getPanX(idx: number): number {

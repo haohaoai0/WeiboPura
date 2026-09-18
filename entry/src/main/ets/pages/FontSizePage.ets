@@ -297,7 +297,7 @@ struct FontSizePage {
       Button() {
         SymbolGlyph($r('sys.symbol.chevron_left'))
           .fontColor([$r('sys.color.icon_primary')])
-          .fontSize(this.scaled(22))
+          .fontSize(this.scaled(28))
       }
       .width(44)
       .height(44)

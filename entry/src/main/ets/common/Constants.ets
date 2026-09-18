@@ -231,8 +231,8 @@ export const PRIVACY_POLICY_URL: string =
   'https://github.com/a307608689-afk/TiebaPura/blob/main/docs/PRIVACY.md';
 
 // 主题色（贴吧蓝）
-export const BRAND_BLUE: string = '#3173FF';
-export const BRAND_BLUE_LIGHT: string = '#5B8FF9';
+export const BRAND_BLUE: string = '#E6162D';
+export const BRAND_BLUE_LIGHT: string = '#F05A6E';
 
 /**
  * HTML 实体解码
@@ -344,4 +344,60 @@ export function formatTime(input: string | number): string {
     return `${mo}-${day} ${h}:${mi}`;
   }
   return `${y}-${mo}-${day}`;
+}
+
+/**
+ * Adapts Weibo's mixed `created_at` values to the same friendly format used by TiebaPura cards.
+ * Weibo may return an epoch, an English RFC-like date, or short Chinese strings such as “今天 12:34”.
+ */
+export function formatWeiboTime(input: string): string {
+  const value: string = input.trim();
+  if (value.length === 0) {
+    return '';
+  }
+  if (/^\d{10,13}$/.test(value)) {
+    return formatTime(parseInt(value, 10));
+  }
+  if (value === '刚刚') {
+    return '刚刚';
+  }
+  const minuteMatch: RegExpExecArray | null = /^(\d+)\s*分钟前$/.exec(value);
+  if (minuteMatch !== null) {
+    return `${minuteMatch[1]} 分钟前`;
+  }
+  const hourMatch: RegExpExecArray | null = /^(\d+)\s*小时前$/.exec(value);
+  if (hourMatch !== null) {
+    return `${hourMatch[1]} 小时前`;
+  }
+  const todayMatch: RegExpExecArray | null = /^今天\s*(\d{1,2}):(\d{2})$/.exec(value);
+  if (todayMatch !== null) {
+    const now: Date = new Date();
+    const date: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate(),
+      parseInt(todayMatch[1], 10), parseInt(todayMatch[2], 10), 0);
+    return formatTime(date.getTime());
+  }
+  const yesterdayMatch: RegExpExecArray | null = /^昨天\s*(\d{1,2}):(\d{2})$/.exec(value);
+  if (yesterdayMatch !== null) {
+    const now: Date = new Date();
+    const date: Date = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 1,
+      parseInt(yesterdayMatch[1], 10), parseInt(yesterdayMatch[2], 10), 0);
+    return formatTime(date.getTime());
+  }
+  const monthDayMatch: RegExpExecArray | null = /^(\d{1,2})-(\d{1,2})$/.exec(value);
+  if (monthDayMatch !== null) {
+    const now: Date = new Date();
+    let year: number = now.getFullYear();
+    const month: number = parseInt(monthDayMatch[1], 10) - 1;
+    const day: number = parseInt(monthDayMatch[2], 10);
+    const date: Date = new Date(year, month, day, 0, 0, 0);
+    if (date.getTime() > now.getTime()) {
+      year--;
+    }
+    return formatTime(new Date(year, month, day, 0, 0, 0).getTime());
+  }
+  const parsed: number = Date.parse(value);
+  if (!isNaN(parsed)) {
+    return formatTime(parsed);
+  }
+  return value;
 }

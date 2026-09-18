@@ -51,14 +51,31 @@ export class ShareUtil {
         rawAbstract.length > 0
           ? (rawAbstract.length > 140 ? `${rawAbstract.substring(0, 140)}…` : rawAbstract)
           : '';
-      const fullText: string =
-        descriptionText.length > 0
-          ? `${titleLine}\n${descriptionText}\n${threadUrl}`
-          : `${titleLine}\n${threadUrl}`;
+      ShareUtil.shareLink(uiContext, abilityCtx, threadUrl, titleLine, descriptionText);
+    } catch (outerErr) {
+      const errMsg: string = outerErr instanceof Error ? outerErr.message : String(outerErr);
+      ToastUtil.show(uiContext, `分享异常：${errMsg}`, ToastType.Error);
+    }
+  }
+
+  /** Share an app-owned URL instead of assuming every card is a Tieba thread. */
+  static shareLink(
+    uiContext: UIContext,
+    abilityCtx: common.UIAbilityContext | undefined | null,
+    url: string,
+    title: string,
+    description: string
+  ): void {
+    try {
+      if (url.length === 0) {
+        ToastUtil.show(uiContext, '链接缺失，无法分享', ToastType.Error);
+        return;
+      }
+      const fullText: string = description.length > 0 ? `${title}\n${description}\n${url}` : `${title}\n${url}`;
       if (!abilityCtx) {
         // Context 拿不到：直接兜底剪贴板
         ToastUtil.show(uiContext, '系统分享不可用，正在复制链接', ToastType.Info);
-        ShareUtil.copyShareToClipboard(uiContext, fullText, titleLine, threadUrl);
+        ShareUtil.copyShareToClipboard(uiContext, fullText, title, url);
         return;
       }
 
@@ -67,9 +84,9 @@ export class ShareUtil {
         // ★ 官方Codelabs L426-438 纯链接分享：utd.UniformDataType.HYPERLINK + content字段（图片才用uri+fileUri）
         const sharedData: systemShare.SharedData = new systemShare.SharedData({
           utd: utd.UniformDataType.HYPERLINK,
-          content: threadUrl,
-          title: titleLine,
-          description: descriptionText
+          content: url,
+          title: title,
+          description: description
         });
         const controller: systemShare.ShareController = new systemShare.ShareController(sharedData);
         // ★ 官方Codelabs关键修正：controller.show()返回Promise，必须单独.catch()才能捕获异步错误
@@ -84,12 +101,12 @@ export class ShareUtil {
           const code: string = showErr?.code !== undefined ? `${showErr.code}` : 'unknown';
           const msg: string = showErr?.message ?? String(showErr);
           ToastUtil.show(uiContext, `分享面板失败[${code}]：${msg}`, ToastType.Error);
-          ShareUtil.copyShareToClipboard(uiContext, fullText, titleLine, threadUrl);
+          ShareUtil.copyShareToClipboard(uiContext, fullText, title, url);
         });
         return;
       } catch (shareErr) {
         ToastUtil.show(uiContext, '系统分享不可用，正在复制链接', ToastType.Info);
-        ShareUtil.copyShareToClipboard(uiContext, fullText, titleLine, threadUrl);
+        ShareUtil.copyShareToClipboard(uiContext, fullText, title, url);
       }
     } catch (outerErr) {
       // 全局兜底：任何异常都弹Toast，避免用户感觉点了没反应

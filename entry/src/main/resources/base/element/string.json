@@ -2,11 +2,439 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "贴吧客户端模块"
+      "value": "微博客户端模块"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "贴吧客户端入口"
+      "value": "微博客户端入口"
+    },
+    {
+      "name": "weibo_title",
+      "value": "微博浏览"
+    },
+    {
+      "name": "weibo_description",
+      "value": "浏览、点赞和评论；Cookie 仅保存在本机。"
+    },
+    {
+      "name": "weibo_cookie_placeholder",
+      "value": "粘贴你自己的微博 Cookie（可留空尝试访客访问）"
+    },
+    {
+      "name": "weibo_user_id_placeholder",
+      "value": "要浏览的微博用户 ID"
+    },
+    {
+      "name": "weibo_save",
+      "value": "保存设置"
+    },
+    {
+      "name": "weibo_load",
+      "value": "加载动态"
+    },
+    {
+      "name": "weibo_loading",
+      "value": "正在读取微博动态…"
+    },
+    {
+      "name": "weibo_empty",
+      "value": "填写用户 ID 后即可加载其公开动态"
+    },
+    {
+      "name": "weibo_cookie_label",
+      "value": "微博 Cookie"
+    },
+    {
+      "name": "weibo_user_id_label",
+      "value": "用户 ID"
+    },
+    {
+      "name": "weibo_comments_loading",
+      "value": "正在读取评论…"
+    },
+    {
+      "name": "weibo_no_comments",
+      "value": "暂未读取到评论"
+    },
+    {
+      "name": "weibo_repost_label",
+      "value": "转发微博"
+    },
+    {
+      "name": "weibo_saved",
+      "value": "微博设置已保存"
+    },
+    {
+      "name": "weibo_missing_user_id",
+      "value": "请先填写微博用户 ID"
+    },
+    {
+      "name": "weibo_privacy_title",
+      "value": "欢迎使用 WeiboPura"
+    },
+    {
+      "name": "weibo_privacy_body",
+      "value": "应用仅在你完成内嵌微博登录后将登录态保存在本机；公开内容可在未登录时浏览。点赞和评论仅在你每次点击后发送，不会自动执行。"
+    },
+    {
+      "name": "weibo_privacy_agree",
+      "value": "同意并继续"
+    },
+    {
+      "name": "weibo_privacy_exit",
+      "value": "退出应用"
+    },
+    {
+      "name": "weibo_tab_home",
+      "value": "首页"
+    },
+    {
+      "name": "weibo_tab_about",
+      "value": "说明"
+    },
+    {
+      "name": "weibo_tab_discover",
+      "value": "发现"
+    },
+    {
+      "name": "weibo_tab_favorite",
+      "value": "收藏"
+    },
+    {
+      "name": "weibo_tab_hot",
+      "value": "热搜"
+    },
+    {
+      "name": "weibo_tab_messages",
+      "value": "消息"
+    },
+    {
+      "name": "weibo_tab_search",
+      "value": "搜索"
+    },
+    {
+      "name": "weibo_tab_mine",
+      "value": "我的"
+    },
+    {
+      "name": "weibo_home_tab_material_title",
+      "value": "首页 Tab 材质"
+    },
+    {
+      "name": "weibo_home_tab_material_note",
+      "value": "调整首页底部 Tab 栏的沉浸光感效果，修改后立即生效"
+    },
+    {
+      "name": "weibo_home_tab_material_label",
+      "value": "材质档位"
+    },
+    {
+      "name": "weibo_home_tab_material_exquisite",
+      "value": "精致"
+    },
+    {
+      "name": "weibo_home_tab_material_gentle",
+      "value": "柔和"
+    },
+    {
+      "name": "weibo_home_tab_material_smooth",
+      "value": "顺滑"
+    },
+    {
+      "name": "weibo_home_tab_material_adaptive",
+      "value": "自适应"
+    },
+    {
+      "name": "weibo_waterfall_columns_title",
+      "value": "帖子瀑布流"
+    },
+    {
+      "name": "weibo_waterfall_columns_note",
+      "value": "大屏时以瀑布流展示帖子；自适应会依据窗口宽度和方向调整列数"
+    },
+    {
+      "name": "weibo_waterfall_columns_label",
+      "value": "列数"
+    },
+    {
+      "name": "weibo_waterfall_columns_adaptive",
+      "value": "自适应"
+    },
+    {
+      "name": "weibo_waterfall_columns_balanced",
+      "value": "竖屏 2 列 · 横屏 3 列"
+    },
+    {
+      "name": "weibo_waterfall_columns_dense",
+      "value": "竖屏 3 列 · 横屏 4 列"
+    },
+    {
+      "name": "weibo_about_title",
+      "value": "微博阅读器"
+    },
+    {
+      "name": "weibo_about_body",
+      "value": "WeiboPura 已用微博数据层替换贴吧主界面。首页输入微博用户 ID 后，即可显示该用户的资料、动态、配图和评论。"
+    },
+    {
+      "name": "weibo_about_readonly",
+      "value": "互动仅在你明确点击后执行"
+    },
+    {
+      "name": "weibo_about_cookie",
+      "value": "Cookie 由你主动输入，仅保存在本机，并且和贴吧旧数据完全隔离。"
+    },
+    {
+      "name": "weibo_about_limit",
+      "value": "微博移动端接口可能随时调整、限流或要求验证码；应用不会尝试规避这些限制。"
+    },
+    {
+      "name": "weibo_mine_title",
+      "value": "我的"
+    },
+    {
+      "name": "weibo_mine_cookie_ready",
+      "value": "已配置微博 Cookie"
+    },
+    {
+      "name": "weibo_mine_cookie_missing",
+      "value": "未配置微博 Cookie"
+    },
+    {
+      "name": "weibo_mine_cookie_note",
+      "value": "通过内嵌微博页面完成登录后，登录态只保存在本机；未登录时仍可浏览公开内容。"
+    },
+    {
+      "name": "weibo_mine_open_home",
+      "value": "前往首页管理浏览设置"
+    },
+    {
+      "name": "weibo_timeline_title",
+      "value": "微博动态"
+    },
+    {
+      "name": "weibo_recommend_title",
+      "value": "推荐"
+    },
+    {
+      "name": "weibo_recommend_hint",
+      "value": "为你推荐的公开微博"
+    },
+    {
+      "name": "weibo_following_title",
+      "value": "关注"
+    },
+    {
+      "name": "weibo_following_hint",
+      "value": "查看我关注用户的动态"
+    },
+    {
+      "name": "weibo_following_empty",
+      "value": "暂未读取到关注动态，请确认已登录微博后刷新"
+    },
+    {
+      "name": "weibo_login_title",
+      "value": "登录微博"
+    },
+    {
+      "name": "weibo_login_done",
+      "value": "完成登录"
+    },
+    {
+      "name": "weibo_login_reauth",
+      "value": "重新登录微博"
+    },
+    {
+      "name": "weibo_timeline_hint",
+      "value": "输入用户 ID 后读取公开动态"
+    },
+    {
+      "name": "weibo_timeline_load_more",
+      "value": "加载更多"
+    },
+    {
+      "name": "weibo_readonly_action",
+      "value": "请在帖子详情中执行该操作"
+    },
+    {
+      "name": "weibo_post_unavailable",
+      "value": "该微博信息暂不可用"
+    },
+    {
+      "name": "weibo_post_detail_title",
+      "value": "微博详情"
+    },
+    {
+      "name": "weibo_profile_title",
+      "value": "个人主页"
+    },
+    {
+      "name": "weibo_profile_posts",
+      "value": "最近微博"
+    },
+    {
+      "name": "weibo_profile_no_posts",
+      "value": "暂未读取到该用户的微博"
+    },
+    {
+      "name": "weibo_profile_unavailable",
+      "value": "该用户资料暂不可用"
+    },
+    {
+      "name": "weibo_back",
+      "value": "返回"
+    },
+    {
+      "name": "weibo_post_comments_title",
+      "value": "评论"
+    },
+    {
+      "name": "weibo_post_load_failed",
+      "value": "帖子详情加载失败，请稍后重试"
+    },
+    {
+      "name": "weibo_open_post_failed",
+      "value": "帖子打开失败，请稍后重试"
+    },
+    {
+      "name": "weibo_like_success",
+      "value": "已点赞"
+    },
+    {
+      "name": "weibo_unlike_success",
+      "value": "已取消点赞"
+    },
+    {
+      "name": "weibo_share",
+      "value": "分享"
+    },
+    {
+      "name": "weibo_gesture_share_failed",
+      "value": "隔空传送失败，请重试"
+    },
+    {
+      "name": "weibo_gesture_share_reposts",
+      "value": "转发"
+    },
+    {
+      "name": "weibo_gesture_share_comments",
+      "value": "评论"
+    },
+    {
+      "name": "weibo_gesture_share_likes",
+      "value": "点赞"
+    },
+    {
+      "name": "weibo_comment",
+      "value": "评论"
+    },
+    {
+      "name": "weibo_comments_opened",
+      "value": "已展开"
+    },
+    {
+      "name": "weibo_comment_placeholder",
+      "value": "写下你的评论"
+    },
+    {
+      "name": "weibo_send_comment",
+      "value": "发送"
+    },
+    {
+      "name": "weibo_sending",
+      "value": "发送中"
+    },
+    {
+      "name": "weibo_comment_success",
+      "value": "评论已发送"
+    },
+    {
+      "name": "weibo_feature_unavailable",
+      "value": "该功能暂未接入微博数据"
+    },
+    {
+      "name": "weibo_hot_title",
+      "value": "微博热搜"
+    },
+    {
+      "name": "weibo_hot_hint",
+      "value": "实时公开热榜，不需要登录"
+    },
+    {
+      "name": "weibo_hot_refresh",
+      "value": "刷新热搜"
+    },
+    {
+      "name": "weibo_hot_empty",
+      "value": "暂未获取到热搜内容"
+    },
+    {
+      "name": "weibo_search_title",
+      "value": "微博搜索"
+    },
+    {
+      "name": "weibo_search_placeholder",
+      "value": "搜索微博内容"
+    },
+    {
+      "name": "weibo_search_action",
+      "value": "搜索"
+    },
+    {
+      "name": "weibo_search_empty",
+      "value": "输入关键词后搜索微博内容"
+    },
+    {
+      "name": "weibo_software_about_entry",
+      "value": "关于软件"
+    },
+    {
+      "name": "weibo_software_about_entry_description",
+      "value": "了解 WeiboPura 并支持开发者"
+    },
+    {
+      "name": "weibo_software_about_title",
+      "value": "关于 WeiboPura"
+    },
+    {
+      "name": "weibo_software_about_description",
+      "value": "WeiboPura 是一款专注于轻松浏览微博内容的第三方客户端。"
+    },
+    {
+      "name": "weibo_software_about_privacy_title",
+      "value": "隐私优先"
+    },
+    {
+      "name": "weibo_software_about_privacy_description",
+      "value": "登录态仅保存在本机；公开内容可在未登录时浏览。"
+    },
+    {
+      "name": "weibo_software_about_interaction_title",
+      "value": "由你掌控互动"
+    },
+    {
+      "name": "weibo_software_about_interaction_description",
+      "value": "点赞、评论等操作只会在你明确点击后发送。"
+    },
+    {
+      "name": "weibo_software_about_support_title",
+      "value": "赞助开发者"
+    },
+    {
+      "name": "weibo_software_about_support_description",
+      "value": "开发与维护需要持续投入时间和精力。若应用对你有帮助，欢迎自愿赞助；无论是否赞助，都感谢你的使用。"
+    },
+    {
+      "name": "weibo_software_about_support_scan",
+      "value": "使用微信或支付宝扫描下方二维码即可支持。"
+    },
+    {
+      "name": "weibo_software_about_wechat",
+      "value": "微信支付"
+    },
+    {
+      "name": "weibo_software_about_alipay",
+      "value": "支付宝"
     }
   ]
 }

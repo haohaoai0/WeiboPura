@@ -42,18 +42,21 @@ export function initMaterialSupport(): void {
   }
   _materialInitialized = true;
   try {
-    _materialApiLevel = deviceInfo.sdkApiVersion;
-    // ⚠️ 门限必须是 26，不是 23：
-    //   ArkUI `uiMaterial` / 通用属性 `systemMaterial` / `barFloatingStyle` 全部是 @since 26.0.0；
-    //   `6.1.0(23)` 是 UI Design Kit `hdsMaterial`（@kit.UIDesignKit）的起始版本，两者不是同一套 API。
-    //   门限取 23 会让 API 23~25 误入「材质路径」——那些版本没有 uiMaterial，材质也判 out of scope。
-    if (_materialApiLevel < 26) {
-      _materialSupported = false;
+    // HarmonyOS 工程的 API 兼容判断必须使用 apiAvailable；sdkApiVersion 仅适用于
+    // OpenHarmony 底座接口。此处保持独立 if，以便编译器识别 API 26 的保护范围。
+    // Some API-24 tablet builds report the target SDK through apiAvailable even
+    // though the API-26 ImmersiveStyle enum is absent at runtime. Require the
+    // actual device SDK as HarmonyX does before touching uiMaterial symbols.
+    if (deviceInfo.sdkApiVersion >= 26 && deviceInfo.apiAvailable('26.0.0')) {
+      _materialApiLevel = 26;
+      // 即便设备声称支持 API 26，也实际构造一次，异常系统或不完整实现立即回退。
+      const probe: uiMaterial.ImmersiveMaterial = new uiMaterial.ImmersiveMaterial();
+      _materialSupported = !!probe;
       return;
     }
-    // 命名空间探测：即便系统上报 ≥26，也确认 uiMaterial 真的可构造（低版本/异常会抛，落到 catch）
-    const probe: uiMaterial.ImmersiveMaterial = new uiMaterial.ImmersiveMaterial();
-    _materialSupported = !!probe;
+    // API 23~25 可以使用 HDS 材质，但没有 ArkUI uiMaterial；它们不能共用同一开关。
+    _materialApiLevel = 0;
+    _materialSupported = false;
   } catch (e) {
     _materialSupported = false;
   }
@@ -98,6 +101,34 @@ let _matSegIdle: uiMaterial.Material | undefined = undefined;
 let _matSegActiveFlat: uiMaterial.Material | undefined = undefined;
 let _matSegIdleFlat: uiMaterial.Material | undefined = undefined;
 
+/** Application accent is kept in AppStorage so every page reads one source of truth. */
+function currentAccent(): string {
+  const saved: string = AppStorage.get<string>('appAccentColor') ?? '#E6162D';
+  if (saved === '#E6162D' || saved === '#007DFF' || saved === '#7856FF'
+    || saved === '#00A870' || saved === '#F59E0B') {
+    return saved;
+  }
+  return '#E6162D';
+}
+
+function accentAlpha(alpha: string): string {
+  return `#${alpha}${currentAccent().substring(1)}`;
+}
+
+/**
+ * Accent-tinted material instances are immutable. Clear just those caches
+ * whenever the application preference changes so the next render recreates
+ * them with the new global color.
+ */
+export function refreshAppAccentMaterials(): void {
+  _matTabActiveDark = undefined;
+  _matTabActiveLight = undefined;
+  _matAccentDark = undefined;
+  _matAccentLight = undefined;
+  _matBottomGlowDark = undefined;
+  _matBottomGlowLight = undefined;
+}
+
 /**
  * 低版本安全网：材质实例统一构造入口。
  *
@@ -112,23 +143,77 @@ let _matSegIdleFlat: uiMaterial.Material | undefined = undefined;
  * 因此本文件材质相关的返回类型统一放宽为 `| undefined`（调用点零改动：
  * `.systemMaterial()` 与各 options 的 `systemMaterial?` 都接受 undefined）。
  */
-function createMaterial(options: uiMaterial.ImmersiveOptions): uiMaterial.ImmersiveMaterial | undefined {
-  if (!isMaterialSupported()) {
-    return undefined;
+enum ImmersiveStyleKind {
+  UltraThin,
+  Thin,
+  Regular,
+  Thick,
+}
+
+interface ImmersiveMaterialRecipe {
+  style: ImmersiveStyleKind;
+  interactive: boolean;
+  applyShadow: boolean;
+  enableLightEffect?: boolean;
+  materialColor?: string;
+  colorInvert?: boolean;
+}
+
+function createMaterial(recipe: ImmersiveMaterialRecipe): uiMaterial.ImmersiveMaterial | undefined {
+  // apiAvailable 必须直接置于 if 条件中，才能同时形成运行时保护并消除低版本 API 告警。
+  if (deviceInfo.sdkApiVersion >= 26 && deviceInfo.apiAvailable('26.0.0')) {
+    if (!isMaterialSupported()) {
+      return undefined;
+    }
+    try {
+      let nativeStyle: uiMaterial.ImmersiveStyle = uiMaterial.ImmersiveStyle.REGULAR;
+      if (recipe.style === ImmersiveStyleKind.UltraThin) {
+        nativeStyle = uiMaterial.ImmersiveStyle.ULTRA_THIN;
+      } else if (recipe.style === ImmersiveStyleKind.Thin) {
+        nativeStyle = uiMaterial.ImmersiveStyle.THIN;
+      } else if (recipe.style === ImmersiveStyleKind.Thick) {
+        nativeStyle = uiMaterial.ImmersiveStyle.THICK;
+      }
+      if (recipe.enableLightEffect === true) {
+        return new uiMaterial.ImmersiveMaterial({
+          style: nativeStyle,
+          interactive: recipe.interactive,
+          lightEffect: { color: undefined },
+          applyShadow: recipe.applyShadow,
+          materialColor: recipe.materialColor,
+          colorInvert: recipe.colorInvert,
+        });
+      }
+      if (recipe.enableLightEffect === false) {
+        return new uiMaterial.ImmersiveMaterial({
+          style: nativeStyle,
+          interactive: recipe.interactive,
+          lightEffect: null,
+          applyShadow: recipe.applyShadow,
+          materialColor: recipe.materialColor,
+          colorInvert: recipe.colorInvert,
+        });
+      }
+      return new uiMaterial.ImmersiveMaterial({
+        style: nativeStyle,
+        interactive: recipe.interactive,
+        applyShadow: recipe.applyShadow,
+        materialColor: recipe.materialColor,
+        colorInvert: recipe.colorInvert,
+      });
+    } catch (e) {
+      return undefined;
+    }
   }
-  try {
-    return new uiMaterial.ImmersiveMaterial(options);
-  } catch (e) {
-    return undefined;
-  }
+  return undefined;
 }
 
 function ensureControl(): uiMaterial.Material | undefined {
   if (!_matControl) {
     _matControl = createMaterial({
-      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      style: ImmersiveStyleKind.UltraThin,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
     });
   }
@@ -138,9 +223,9 @@ function ensureControl(): uiMaterial.Material | undefined {
 function ensureBar(): uiMaterial.Material | undefined {
   if (!_matBar) {
     _matBar = createMaterial({
-      style: uiMaterial.ImmersiveStyle.ULTRA_THIN,
+      style: ImmersiveStyleKind.UltraThin,
       interactive: false,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
       colorInvert: true,
     });
@@ -151,11 +236,11 @@ function ensureBar(): uiMaterial.Material | undefined {
 function ensureFloatingBar(): uiMaterial.ImmersiveMaterial | undefined {
   if (!_matFloating) {
     _matFloating = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: false,
       // 显式禁用流光：官方语义「传对象=启用、传 null=禁用、不传=跟随组件默认」；
       // 此前 { color: undefined } 属于「传对象启用」，悬浮岛上沿会渲染一条白色光感线（真机可见，用户要求去掉）。
-      lightEffect: null,
+      enableLightEffect: false,
       applyShadow: true,
       colorInvert: true,
     });
@@ -175,9 +260,9 @@ function ensureFloatingBar(): uiMaterial.ImmersiveMaterial | undefined {
 function ensureFloatingBarFlat(): uiMaterial.ImmersiveMaterial | undefined {
   if (!_matFloatingFlat) {
     _matFloatingFlat = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: false,
-      lightEffect: null,
+      enableLightEffect: false,
       applyShadow: false,
       colorInvert: true,
     });
@@ -188,9 +273,9 @@ function ensureFloatingBarFlat(): uiMaterial.ImmersiveMaterial | undefined {
 function ensureTab(): uiMaterial.Material | undefined {
   if (!_matTab) {
     _matTab = createMaterial({
-      style: uiMaterial.ImmersiveStyle.REGULAR,
+      style: ImmersiveStyleKind.Regular,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
     });
   }
@@ -200,11 +285,11 @@ function ensureTab(): uiMaterial.Material | undefined {
 function ensureTabActiveDark(): uiMaterial.Material | undefined {
   if (!_matTabActiveDark) {
     _matTabActiveDark = createMaterial({
-      style: uiMaterial.ImmersiveStyle.REGULAR,
+      style: ImmersiveStyleKind.Regular,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
-      materialColor: '#553173FF',
+      materialColor: accentAlpha('55'),
     });
   }
   return _matTabActiveDark;
@@ -213,11 +298,11 @@ function ensureTabActiveDark(): uiMaterial.Material | undefined {
 function ensureTabActiveLight(): uiMaterial.Material | undefined {
   if (!_matTabActiveLight) {
     _matTabActiveLight = createMaterial({
-      style: uiMaterial.ImmersiveStyle.REGULAR,
+      style: ImmersiveStyleKind.Regular,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
-      materialColor: '#383173FF',
+      materialColor: accentAlpha('38'),
     });
   }
   return _matTabActiveLight;
@@ -230,9 +315,9 @@ function ensureTabActiveLight(): uiMaterial.Material | undefined {
 function ensureSegActive(): uiMaterial.Material | undefined {
   if (!_matSegActive) {
     _matSegActive = createMaterial({
-      style: uiMaterial.ImmersiveStyle.REGULAR,
+      style: ImmersiveStyleKind.Regular,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
     });
   }
@@ -245,9 +330,9 @@ function ensureSegActive(): uiMaterial.Material | undefined {
 function ensureSegIdle(): uiMaterial.Material | undefined {
   if (!_matSegIdle) {
     _matSegIdle = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
     });
   }
@@ -262,9 +347,9 @@ function ensureSegIdle(): uiMaterial.Material | undefined {
 function ensureSegActiveFlat(): uiMaterial.Material | undefined {
   if (!_matSegActiveFlat) {
     _matSegActiveFlat = createMaterial({
-      style: uiMaterial.ImmersiveStyle.REGULAR,
+      style: ImmersiveStyleKind.Regular,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: false,
     });
   }
@@ -275,9 +360,9 @@ function ensureSegActiveFlat(): uiMaterial.Material | undefined {
 function ensureSegIdleFlat(): uiMaterial.Material | undefined {
   if (!_matSegIdleFlat) {
     _matSegIdleFlat = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: false,
     });
   }
@@ -287,7 +372,7 @@ function ensureSegIdleFlat(): uiMaterial.Material | undefined {
 function ensureCardAction(): uiMaterial.Material | undefined {
   if (!_matCardAction) {
     _matCardAction = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: true,
       applyShadow: true,
     });
@@ -298,9 +383,9 @@ function ensureCardAction(): uiMaterial.Material | undefined {
 function ensureFab(): uiMaterial.Material | undefined {
   if (!_matFab) {
     _matFab = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THICK,
+      style: ImmersiveStyleKind.Thick,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
     });
   }
@@ -326,9 +411,9 @@ function ensureFab(): uiMaterial.Material | undefined {
 function ensureFabFlat(): uiMaterial.Material | undefined {
   if (!_matFabFlat) {
     _matFabFlat = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: false,
       colorInvert: true,
     });
@@ -339,11 +424,11 @@ function ensureFabFlat(): uiMaterial.Material | undefined {
 function ensureAccentDark(): uiMaterial.Material | undefined {
   if (!_matAccentDark) {
     _matAccentDark = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
-      materialColor: '#663173FF',
+      materialColor: accentAlpha('66'),
     });
   }
   return _matAccentDark;
@@ -352,11 +437,11 @@ function ensureAccentDark(): uiMaterial.Material | undefined {
 function ensureAccentLight(): uiMaterial.Material | undefined {
   if (!_matAccentLight) {
     _matAccentLight = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
-      materialColor: '#4C3173FF',
+      materialColor: accentAlpha('4C'),
     });
   }
   return _matAccentLight;
@@ -369,9 +454,9 @@ function ensureAccentLight(): uiMaterial.Material | undefined {
 function ensureDangerDark(): uiMaterial.Material | undefined {
   if (!_matDangerDark) {
     _matDangerDark = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
       materialColor: '#66F5222D',
     });
@@ -382,9 +467,9 @@ function ensureDangerDark(): uiMaterial.Material | undefined {
 function ensureDangerLight(): uiMaterial.Material | undefined {
   if (!_matDangerLight) {
     _matDangerLight = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THIN,
+      style: ImmersiveStyleKind.Thin,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
       materialColor: '#4CF5222D',
     });
@@ -395,10 +480,10 @@ function ensureDangerLight(): uiMaterial.Material | undefined {
 function ensureBottomGlowDark(): uiMaterial.Material | undefined {
   if (!_matBottomGlowDark) {
     _matBottomGlowDark = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THICK,
+      style: ImmersiveStyleKind.Thick,
       interactive: false,
       applyShadow: true,
-      materialColor: '#553173FF',
+      materialColor: accentAlpha('55'),
     });
   }
   return _matBottomGlowDark;
@@ -407,10 +492,10 @@ function ensureBottomGlowDark(): uiMaterial.Material | undefined {
 function ensureBottomGlowLight(): uiMaterial.Material | undefined {
   if (!_matBottomGlowLight) {
     _matBottomGlowLight = createMaterial({
-      style: uiMaterial.ImmersiveStyle.THICK,
+      style: ImmersiveStyleKind.Thick,
       interactive: false,
       applyShadow: true,
-      materialColor: '#383173FF',
+      materialColor: accentAlpha('38'),
     });
   }
   return _matBottomGlowLight;
@@ -419,9 +504,9 @@ function ensureBottomGlowLight(): uiMaterial.Material | undefined {
 function ensureRowItem(): uiMaterial.Material | undefined {
   if (!_matRowItem) {
     _matRowItem = createMaterial({
-      style: uiMaterial.ImmersiveStyle.REGULAR,
+      style: ImmersiveStyleKind.Regular,
       interactive: true,
-      lightEffect: { color: undefined },
+      enableLightEffect: true,
       applyShadow: true,
     });
   }
@@ -438,7 +523,7 @@ function ensureRowItem(): uiMaterial.Material | undefined {
 function ensureDialog(): uiMaterial.ImmersiveMaterial | undefined {
   if (!_matDialog) {
     _matDialog = createMaterial({
-      style: uiMaterial.ImmersiveStyle.REGULAR,
+      style: ImmersiveStyleKind.Regular,
       interactive: false,
       applyShadow: true,
     });
@@ -633,9 +718,9 @@ export class Theme {
   // 骨架屏方案G："未上墨的纸"——整块占位底色，比页面底色略深一档，接近背景避免块状突兀
   static skeletonSheet(isDark: boolean): string { return isDark ? '#171A20' : '#EDF0F4'; }
   static glassSheen(isDark: boolean): string { return isDark ? '#48FFFFFF' : '#F0FFFFFF'; }
-  static glassAccent(): string { return '#3173FF'; }
-  static glassGlow(isDark: boolean): string { return isDark ? '#663173FF' : '#453173FF'; }
-  static glassGlowStrong(isDark: boolean): string { return isDark ? '#A03173FF' : '#703173FF'; }
+  static glassAccent(): string { return currentAccent(); }
+  static glassGlow(isDark: boolean): string { return accentAlpha(isDark ? '66' : '45'); }
+  static glassGlowStrong(isDark: boolean): string { return accentAlpha(isDark ? 'A0' : '70'); }
   static glassShadow(isDark: boolean): string { return isDark ? '#99000000' : '#3D102018'; }
   static glassControl(isDark: boolean): string { return isDark ? '#7A252A33' : '#B8FFFFFF'; }
   // 实底档（图片浏览浮层三件套用）：不透明，取代半透明玻璃档。
@@ -644,7 +729,7 @@ export class Theme {
   static glassControlSolid(isDark: boolean): string { return isDark ? '#1B1E24' : '#FFFFFF'; }
   static glassControlLine(isDark: boolean): string { return isDark ? '#58FFFFFF' : '#E6FFFFFF'; }
   static glassControlShadow(isDark: boolean): string { return isDark ? '#70000000' : '#30101824'; }
-  static glassBrand(isDark: boolean): string { return isDark ? '#7A3173FF' : '#4C3173FF'; }
+  static glassBrand(isDark: boolean): string { return accentAlpha(isDark ? '7A' : '4C'); }
   static topBarGlass(isDark: boolean): string { return isDark ? '#991B1E24' : '#B8FFFFFF'; }
   static topBarLine(isDark: boolean): string { return isDark ? '#42FFFFFF' : '#D6FFFFFF'; }
   static topBarShadow(isDark: boolean): string { return isDark ? '#66000000' : '#24101824'; }
@@ -667,8 +752,8 @@ export class Theme {
   static iconPrimary(isDark: boolean): string { return isDark ? '#F0F2F5' : '#1A1A1A'; }
   // 分割线
   static divider(isDark: boolean): string { return isDark ? '#2E2E33' : '#EBEDF0'; }
-  // 主题蓝
-  static brand(): string { return '#3173FF'; }
+  // 应用强调色：默认微博红，可由「软件设置」中的主题色即时覆盖。
+  static brand(): string { return currentAccent(); }
   /**
    * 分段胶囊选中文字色（沉浸光感恒开启）：
    * 选中为浅蓝官方材质胶囊 → 亮色深字 / 深色白字
@@ -677,7 +762,22 @@ export class Theme {
     return isDark ? '#FFFFFF' : '#000000';
   }
   // 强调背景
-  static brandBg(isDark: boolean): string { return isDark ? '#1A2B4A' : '#EAF1FE'; }
+  static brandBg(isDark: boolean): string {
+    const accent: string = Theme.brand();
+    if (accent === '#007DFF') {
+      return isDark ? '#1F3555' : '#E7F2FF';
+    }
+    if (accent === '#7856FF') {
+      return isDark ? '#33295A' : '#F0ECFF';
+    }
+    if (accent === '#00A870') {
+      return isDark ? '#1E4438' : '#E4F7EF';
+    }
+    if (accent === '#F59E0B') {
+      return isDark ? '#4A391D' : '#FFF4DC';
+    }
+    return isDark ? '#45232A' : '#FCECEE';
+  }
   // 置顶徽章（柔红底白字，深色降一档明度避免刺眼；与精品蓝 badge 语义区分）
   static badgePin(isDark: boolean): string { return isDark ? '#E06161' : '#FF8A8A'; }
   static glassLine(isDark: boolean): string { return isDark ? '#4AFFFFFF' : '#80FFFFFF'; }
@@ -968,6 +1068,8 @@ export interface RadiusToken {
   sm: number;
   md: number;
   lg: number;
+  /** 帖子及内容卡片统一外圆角。 */
+  postCard: number;
   full: number;
 }
 
@@ -975,6 +1077,7 @@ export const Radius: RadiusToken = {
   sm: 8,
   md: 12,
   lg: 16,
+  postCard: 26,
   full: 999,
 };
 
