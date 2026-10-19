@@ -1,0 +1,1152 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo · 微博分享卡片设计原型</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --brand-dark: #3D9165;
+      --brand-light: rgba(78, 170, 120, 0.12);
+      --brand-border: rgba(78, 170, 120, 0.28);
+      --brand-gradient: linear-gradient(135deg, #4EAA78 0%, #369B82 50%, #208B8C 100%);
+      
+      --bg: #F0F3F1;
+      --bg-card: #FFFFFF;
+      --bg-card-subtle: #F6F8F7;
+      --bg-surface: #E8ECE9;
+      --bg-tag: rgba(0, 0, 0, 0.04);
+      --border: rgba(0, 0, 0, 0.08);
+      --border-focus: rgba(78, 170, 120, 0.5);
+
+      --text-primary: #181F1B;
+      --text-secondary: #5C6861;
+      --text-tertiary: #929E97;
+      
+      --font-cn: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+      --font-mono: "SF Mono", "Consolas", monospace;
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.04);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.06);
+      --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.08);
+      --shadow-card: 0 12px 36px rgba(0, 0, 0, 0.07), 0 1px 3px rgba(0, 0, 0, 0.04);
+    }
+
+    [data-theme="dark"] {
+      --bg: #0D1210;
+      --bg-card: #151D18;
+      --bg-card-subtle: #1B2520;
+      --bg-surface: #1E2822;
+      --bg-tag: rgba(255, 255, 255, 0.06);
+      --border: rgba(255, 255, 255, 0.08);
+      --border-focus: rgba(78, 170, 120, 0.6);
+
+      --text-primary: #EEF4F0;
+      --text-secondary: #8E9C94;
+      --text-tertiary: #526058;
+      
+      --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.2);
+      --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.3);
+      --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.4);
+      --shadow-card: 0 12px 36px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(255, 255, 255, 0.05);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    body {
+      background-color: var(--bg);
+      color: var(--text-primary);
+      font-family: var(--font-cn);
+      line-height: 1.6;
+      padding: 28px 20px 80px;
+      transition: background-color 0.25s ease, color 0.25s ease;
+    }
+
+    header {
+      max-width: 1200px;
+      margin: 0 auto 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 16px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 20px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 10px;
+      background: var(--brand-gradient);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFF;
+      box-shadow: 0 4px 12px rgba(78, 170, 120, 0.3);
+    }
+
+    .brand-icon svg {
+      width: 20px;
+      height: 20px;
+      fill: none;
+      stroke: currentColor;
+      stroke-width: 2.2;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
+
+    .brand-text h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+    }
+
+    .brand-text p {
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid var(--border);
+      background: var(--bg-card);
+      color: var(--text-primary);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.15s ease;
+    }
+
+    .btn:hover {
+      background: var(--bg-card-subtle);
+      border-color: var(--border-focus);
+    }
+
+    .btn-brand {
+      background: var(--brand);
+      color: #FFF;
+      border-color: var(--brand);
+    }
+
+    .btn-brand:hover {
+      background: var(--brand-dark);
+      border-color: var(--brand-dark);
+    }
+
+    /* 选项栏 */
+    .controls-bar {
+      max-width: 1200px;
+      margin: 0 auto 36px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      background: var(--bg-card);
+      padding: 12px 16px;
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow-sm);
+    }
+
+    .filter-group {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .filter-label {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-right: 4px;
+      font-weight: 500;
+    }
+
+    .seg-pill {
+      padding: 6px 14px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .seg-pill.active {
+      background: var(--brand-light);
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    .divider {
+      width: 1px;
+      height: 20px;
+      background: var(--border);
+      margin: 0 8px;
+    }
+
+    /* 原型展示区 */
+    .prototype-grid {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+      gap: 32px;
+      align-items: start;
+    }
+
+    .card-column {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .column-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 0 4px;
+    }
+
+    .column-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .column-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 4px;
+      background: var(--brand-light);
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    .column-desc {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+    }
+
+    /* 卡片公共结构 */
+    .share-card {
+      width: 100%;
+      max-width: 380px;
+      margin: 0 auto;
+      border-radius: 20px;
+      overflow: hidden;
+      box-shadow: var(--shadow-card);
+      position: relative;
+      transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s ease;
+    }
+
+    .share-card:hover {
+      transform: translateY(-3px);
+      box-shadow: var(--shadow-lg);
+    }
+
+    /* 方案 A：现代人文编排 (Modern Editorial / Calm Paper) */
+    .card-scheme-a {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 24px;
+      position: relative;
+    }
+
+    .card-scheme-a::before {
+      content: "";
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 4px;
+      background: var(--brand-gradient);
+    }
+
+    .card-scheme-a .card-author {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 18px;
+    }
+
+    .card-scheme-a .author-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      object-fit: cover;
+      border: 1.5px solid var(--border);
+    }
+
+    .card-scheme-a .author-meta {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .card-scheme-a .author-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .card-scheme-a .verified-badge {
+      color: #FF8200;
+      display: inline-flex;
+    }
+
+    .card-scheme-a .publish-time {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+
+    .card-scheme-a .card-body {
+      font-size: 15px;
+      line-height: 1.75;
+      color: var(--text-primary);
+      letter-spacing: -0.01em;
+      margin-bottom: 18px;
+      word-break: break-word;
+    }
+
+    .card-scheme-a .card-body .topic-tag {
+      color: var(--brand);
+      font-weight: 500;
+    }
+
+    .card-scheme-a .media-container {
+      margin-bottom: 20px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .card-scheme-a .single-img {
+      width: 100%;
+      height: 210px;
+      object-fit: cover;
+      display: block;
+      border-radius: 12px;
+    }
+
+    .card-scheme-a .multi-img-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+    }
+
+    .card-scheme-a .multi-img-grid img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 6px;
+    }
+
+    /* 转发原博嵌套块 */
+    .card-scheme-a .repost-box {
+      background: var(--bg-card-subtle);
+      border-radius: 12px;
+      padding: 14px;
+      margin-bottom: 20px;
+      border-left: 3px solid var(--brand);
+    }
+
+    .card-scheme-a .repost-author {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brand);
+      margin-bottom: 6px;
+    }
+
+    .card-scheme-a .repost-content {
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--text-secondary);
+    }
+
+    .card-scheme-a .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 16px;
+      border-top: 1px dashed var(--border);
+    }
+
+    .card-scheme-a .brand-stamp {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .card-scheme-a .stamp-logo {
+      width: 22px;
+      height: 22px;
+      border-radius: 6px;
+      background: var(--brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFF;
+    }
+
+    .card-scheme-a .stamp-text {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .card-scheme-a .stamp-app {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      color: var(--text-primary);
+      line-height: 1.2;
+    }
+
+    .card-scheme-a .stamp-slogan {
+      font-size: 10px;
+      color: var(--text-tertiary);
+    }
+
+    .card-scheme-a .qr-code-placeholder {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .card-scheme-a .mini-qr {
+      width: 28px;
+      height: 28px;
+      border-radius: 4px;
+      background: var(--bg-surface);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 1px solid var(--border);
+    }
+
+    /* 方案 B：流光青绿卡片 (Luminous Frosted / Accent Glass) */
+    .card-scheme-b {
+      background: var(--bg-card);
+      border: 1px solid var(--brand-border);
+      padding: 24px;
+      position: relative;
+      box-shadow: 0 8px 30px rgba(78, 170, 120, 0.12);
+    }
+
+    .card-scheme-b .glow-ambient {
+      position: absolute;
+      top: -30px;
+      right: -30px;
+      width: 140px;
+      height: 140px;
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(78, 170, 120, 0.18) 0%, rgba(78, 170, 120, 0) 70%);
+      pointer-events: none;
+    }
+
+    .card-scheme-b .card-header-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 4px 10px;
+      border-radius: 999px;
+      background: var(--brand-light);
+      color: var(--brand);
+      font-size: 11px;
+      font-weight: 600;
+      margin-bottom: 14px;
+    }
+
+    .card-scheme-b .quote-symbol {
+      font-family: Georgia, serif;
+      font-size: 38px;
+      line-height: 1;
+      color: var(--brand);
+      opacity: 0.3;
+      margin-bottom: -10px;
+    }
+
+    .card-scheme-b .card-body {
+      font-size: 16px;
+      line-height: 1.7;
+      font-weight: 500;
+      color: var(--text-primary);
+      margin-bottom: 20px;
+    }
+
+    .card-scheme-b .author-capsule {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: 999px;
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border);
+      margin-bottom: 20px;
+    }
+
+    .card-scheme-b .author-avatar {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .card-scheme-b .author-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      flex: 1;
+    }
+
+    .card-scheme-b .source-tag {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .card-scheme-b .card-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      color: var(--text-tertiary);
+      border-top: 1px solid var(--border);
+      padding-top: 14px;
+    }
+
+    .card-scheme-b .fluo-brand-label {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-weight: 600;
+      color: var(--brand);
+    }
+
+    /* 方案 C：极简人文留白 (Minimalist Monograph) */
+    .card-scheme-c {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      padding: 28px 24px;
+    }
+
+    .card-scheme-c .top-meta-line {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-bottom: 20px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .card-scheme-c .card-body {
+      font-size: 15px;
+      line-height: 1.8;
+      color: var(--text-primary);
+      margin-bottom: 24px;
+      font-family: var(--font-cn);
+    }
+
+    .card-scheme-c .signature-block {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 24px;
+    }
+
+    .card-scheme-c .author-sign {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .card-scheme-c .author-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+    }
+
+    .card-scheme-c .author-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .card-scheme-c .card-footer-mark {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+    }
+
+    /* 弹窗交互预览 */
+    .dialog-preview-container {
+      max-width: 1200px;
+      margin: 48px auto 0;
+      background: var(--bg-card);
+      border-radius: 20px;
+      border: 1px solid var(--border);
+      padding: 28px;
+      box-shadow: var(--shadow-sm);
+    }
+
+    .dialog-mock-backdrop {
+      background: rgba(0, 0, 0, 0.55);
+      border-radius: 24px;
+      padding: 40px 20px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      position: relative;
+    }
+
+    .dialog-box {
+      width: 100%;
+      max-width: 440px;
+      background: var(--bg);
+      border-radius: 24px;
+      padding: 20px;
+      box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+
+    .dialog-title-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .dialog-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .dialog-tools {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .circle-icon-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    .dialog-scroll-body {
+      max-height: 480px;
+      overflow-y: auto;
+      padding: 4px;
+    }
+
+    .dialog-actions {
+      display: flex;
+      gap: 10px;
+      padding-top: 8px;
+    }
+
+    .action-btn {
+      flex: 1;
+      height: 42px;
+      border-radius: 999px;
+      font-size: 14px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      cursor: pointer;
+      border: none;
+      transition: all 0.15s;
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-primary);
+      border: 1px solid var(--border);
+    }
+
+    .btn-primary {
+      background: var(--brand);
+      color: #FFF;
+    }
+
+    .btn-primary:hover {
+      background: var(--brand-dark);
+    }
+
+    /* 细节说明标注区 */
+    .specs-section {
+      max-width: 1200px;
+      margin: 40px auto 0;
+      background: var(--bg-card);
+      border-radius: 16px;
+      border: 1px solid var(--border);
+      padding: 24px;
+    }
+
+    .specs-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 20px;
+      margin-top: 16px;
+    }
+
+    .spec-item {
+      padding: 14px;
+      background: var(--bg-card-subtle);
+      border-radius: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .spec-item h4 {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--brand);
+      margin-bottom: 6px;
+    }
+
+    .spec-item p {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body data-theme="light">
+
+  <header>
+    <div class="brand-title">
+      <div class="brand-icon">
+        <svg viewBox="0 0 24 24">
+          <path d="M4 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8" />
+          <path d="M12 4v16" opacity="0.4" />
+          <circle cx="12" cy="12" r="3" fill="currentColor" />
+        </svg>
+      </div>
+      <div class="brand-text">
+        <h1>Fluo 分享卡片交互与视觉原型</h1>
+        <p>HarmonyOS 沉浸式微博阅读客户端 · 优雅生成与导出卡片方案</p>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button class="btn" id="themeToggleBtn" onclick="toggleTheme()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="5"/>
+          <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2M4.22 19.78l1.42-1.42M18.36 5.64l1.42-1.42"/>
+        </svg>
+        <span id="themeBtnText">切换深色</span>
+      </button>
+      <button class="btn btn-brand" onclick="scrollToDialog()">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+          <circle cx="8.5" cy="8.5" r="1.5"/>
+          <polyline points="21 15 16 10 5 21"/>
+        </svg>
+        查看弹窗交互模拟
+      </button>
+    </div>
+  </header>
+
+  <!-- 场景控制栏 -->
+  <div class="controls-bar">
+    <div class="filter-group">
+      <span class="filter-label">微博内容形态：</span>
+      <button class="seg-pill active" onclick="switchContentType('text')">纯文字博文</button>
+      <button class="seg-pill" onclick="switchContentType('single-img')">单张大图</button>
+      <button class="seg-pill" onclick="switchContentType('multi-img')">九宫格多图</button>
+      <button class="seg-pill" onclick="switchContentType('repost')">转发嵌套博文</button>
+    </div>
+    <div class="divider"></div>
+    <div class="filter-group">
+      <span class="filter-label">卡片宽度规格：</span>
+      <button class="seg-pill active" onclick="switchWidth('380px')">标准 380vp (手机预览)</button>
+      <button class="seg-pill" onclick="switchWidth('440px')">大屏 440vp (折叠屏展开)</button>
+    </div>
+  </div>
+
+  <!-- 原型三方案横向对比 -->
+  <div class="prototype-grid">
+    
+    <!-- 方案 A -->
+    <div class="card-column">
+      <div class="column-header">
+        <div class="column-title">
+          <span>方案 A：现代人文编排</span>
+          <span class="column-badge">推荐</span>
+        </div>
+      </div>
+      <p class="column-desc">类似高端人文杂志排版。顶部品牌微渐变线，温润留白，字偶距精细调优，底部附微缩水印与短链码。</p>
+
+      <div class="share-card card-scheme-a" id="cardA">
+        <div class="card-author">
+          <div style="width: 42px; height: 42px; border-radius: 50%; background: linear-gradient(135deg, #5672CD, #4EAA78); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 700; font-size: 16px; flex-shrink: 0;">罗</div>
+          <div class="author-meta">
+            <div class="author-name">
+              <span>罗永浩</span>
+              <span class="verified-badge">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+                  <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                </svg>
+              </span>
+            </div>
+            <div class="publish-time">10月12日 08:30 · 来自 微博网页版</div>
+          </div>
+        </div>
+
+        <div class="card-body" id="bodyA">
+          在科技与人文的十字路口，好的工具不该喧宾夺主。它应该像清晨的湖面一样安静，把阅读的主动权和注意力完整归还给读者。这就是我们追求的设计克制。<span class="topic-tag">#产品美学#</span>
+        </div>
+
+        <div class="media-container" id="mediaA" style="display: none;">
+          <!-- 动态注入 -->
+        </div>
+
+        <div class="repost-box" id="repostA" style="display: none;">
+          <div class="repost-author">@少数派sspai</div>
+          <div class="repost-content">好的工具如同呼吸：需要时即在手边，不需要时从不打扰。数字阅读的下半场，拼的往往是谁更少地侵扰用户的精神空间。</div>
+        </div>
+
+        <div class="card-footer">
+          <div class="brand-stamp">
+            <div class="stamp-logo">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <path d="M4 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8"/>
+              </svg>
+            </div>
+            <div class="stamp-text">
+              <span class="stamp-app">Fluo</span>
+              <span class="stamp-slogan">沉浸式微博阅读</span>
+            </div>
+          </div>
+          <div style="font-size: 11px; color: var(--text-tertiary);">
+            <span>m.weibo.cn</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 B -->
+    <div class="card-column">
+      <div class="column-header">
+        <div class="column-title">
+          <span>方案 B：流光青绿卡片</span>
+          <span class="column-badge" style="background: rgba(32,139,140,0.12); color: #208B8C;">光感</span>
+        </div>
+      </div>
+      <p class="column-desc">强调 Fluo 品牌青绿与湖水光泽。右上微晕环境辉光，胶囊作者标识，更具现代数字产品的美学质感。</p>
+
+      <div class="share-card card-scheme-b" id="cardB">
+        <div class="glow-ambient"></div>
+        
+        <div class="card-header-badge">
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor">
+            <circle cx="12" cy="12" r="10"/>
+          </svg>
+          <span>精选摘录</span>
+        </div>
+
+        <div class="quote-symbol">“</div>
+
+        <div class="card-body" id="bodyB">
+          在科技与人文的十字路口，好的工具不该喧宾夺主。它应该像清晨的湖面一样安静，把阅读的主动权和注意力完整归还给读者。这就是我们追求的设计克制。#产品美学#
+        </div>
+
+        <div class="media-container" id="mediaB" style="display: none;"></div>
+        <div class="repost-box" id="repostB" style="display: none; background: rgba(78,170,120,0.06); padding: 12px; border-radius: 10px; margin-bottom: 16px;">
+          <div style="font-size: 12px; font-weight: 600; color: var(--brand); margin-bottom: 4px;">@少数派sspai</div>
+          <div style="font-size: 12px; color: var(--text-secondary);">好的工具如同呼吸：需要时即在手边，不需要时从不打扰。</div>
+        </div>
+
+        <div class="author-capsule">
+          <div style="width: 28px; height: 28px; border-radius: 50%; background: linear-gradient(135deg, #5672CD, #4EAA78); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 700; font-size: 12px; flex-shrink: 0;">罗</div>
+          <span class="author-name">罗永浩</span>
+          <span class="source-tag">10月12日 08:30</span>
+        </div>
+
+        <div class="card-footer">
+          <div class="fluo-brand-label">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="12" cy="12" r="9"/>
+            </svg>
+            <span>Fluo · 沉浸阅读</span>
+          </div>
+          <span>m.weibo.cn</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 C -->
+    <div class="card-column">
+      <div class="column-header">
+        <div class="column-title">
+          <span>方案 C：极简人文留白</span>
+          <span class="column-badge" style="background: rgba(0,0,0,0.05); color: var(--text-secondary);">极简</span>
+        </div>
+      </div>
+      <p class="column-desc">极度收敛。去掉所有多余装饰元素，纯粹依靠字重、行距与呼吸感营造长久耐看的私享笔记格调。</p>
+
+      <div class="share-card card-scheme-c" id="cardC">
+        <div class="top-meta-line">
+          <span>罗永浩 · 微博</span>
+          <span>10月12日 08:30</span>
+        </div>
+
+        <div class="card-body" id="bodyC">
+          在科技与人文的十字路口，好的工具不该喧宾夺主。它应该像清晨的湖面一样安静，把阅读的主动权和注意力完整归还给读者。这就是我们追求的设计克制。
+        </div>
+
+        <div class="media-container" id="mediaC" style="display: none;"></div>
+        <div class="repost-box" id="repostC" style="display: none; border-left: 2px solid var(--border); padding-left: 12px; margin-bottom: 20px;">
+          <div style="font-size: 13px; color: var(--text-secondary);">@少数派sspai：好的工具如同呼吸：需要时即在手边，不需要时从不打扰。</div>
+        </div>
+
+        <div class="signature-block">
+          <div class="author-sign">
+            <div style="width: 32px; height: 32px; border-radius: 50%; background: linear-gradient(135deg, #5672CD, #4EAA78); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 700; font-size: 13px; flex-shrink: 0;">罗</div>
+            <span class="author-name">罗永浩</span>
+          </div>
+          <div class="card-footer-mark">Fluo Reader</div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 弹窗交互模拟 -->
+  <div class="dialog-preview-container" id="dialogSection">
+    <div style="margin-bottom: 20px;">
+      <h2 style="font-size: 18px; font-weight: 700;">HarmonyOS 原生弹窗交互模拟 (CustomDialog)</h2>
+      <p style="font-size: 13px; color: var(--text-secondary); margin-top: 4px;">点击微博详情页右上角“分享”按钮唤出。弹窗内置卡片实时渲染预览、明暗主题即时切换、保存到图库与系统级分享面板拉起。</p>
+    </div>
+
+    <div class="dialog-mock-backdrop">
+      <div class="dialog-box">
+        <!-- 弹窗顶栏 -->
+        <div class="dialog-title-bar">
+          <div class="dialog-title">生成分享卡片</div>
+          <div class="dialog-tools">
+            <button class="circle-icon-btn" onclick="toggleTheme()" title="切换卡片明暗色彩">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <circle cx="12" cy="12" r="5"/>
+                <path d="M12 1v2M12 21v2M4.22 4.22l1.42 1.42M18.36 18.36l1.42 1.42M1 12h2M21 12h2"/>
+              </svg>
+            </button>
+            <button class="circle-icon-btn" title="关闭弹窗">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <line x1="18" y1="6" x2="6" y2="18"/>
+                <line x1="6" y1="6" x2="18" y2="18"/>
+              </svg>
+            </button>
+          </div>
+        </div>
+
+        <!-- 弹窗滚动体：卡片预览 -->
+        <div class="dialog-scroll-body">
+          <div class="share-card card-scheme-a" style="max-width: 100%; box-shadow: none; border: 1px solid var(--border);">
+            <div class="card-author">
+              <div style="width: 38px; height: 38px; border-radius: 50%; background: linear-gradient(135deg, #5672CD, #4EAA78); display: flex; align-items: center; justify-content: center; color: #FFF; font-weight: 700; font-size: 15px; flex-shrink: 0;">罗</div>
+              <div class="author-meta">
+                <div class="author-name">罗永浩</div>
+                <div class="publish-time">10月12日 08:30 · 来自 微博网页版</div>
+              </div>
+            </div>
+            <div class="card-body">
+              在科技与人文的十字路口，好的工具不该喧宾夺主。它应该像清晨的湖面一样安静，把阅读的主动权和注意力完整归还给读者。这就是我们追求的设计克制。<span class="topic-tag">#产品美学#</span>
+            </div>
+            <div class="card-footer">
+              <div class="brand-stamp">
+                <div class="stamp-logo">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                    <path d="M4 12c0-4.418 3.582-8 8-8s8 3.582 8 8-3.582 8-8 8"/>
+                  </svg>
+                </div>
+                <div class="stamp-text">
+                  <span class="stamp-app">Fluo</span>
+                  <span class="stamp-slogan">沉浸式微博阅读</span>
+                </div>
+              </div>
+              <div style="font-size: 11px; color: var(--text-tertiary);">
+                <span>m.weibo.cn</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 弹窗底部操作区 -->
+        <div class="dialog-actions">
+          <button class="action-btn btn-secondary" onclick="alert('已复制微博链接至剪贴板')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+              <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+            </svg>
+            复制链接
+          </button>
+          <button class="action-btn btn-primary" onclick="alert('分享卡片已通过 componentSnapshot 渲染并保存至系统相册')">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="7 10 12 15 17 10"/>
+              <line x1="12" y1="15" x2="12" y2="3"/>
+            </svg>
+            保存图片
+          </button>
+          <button class="action-btn btn-primary" style="flex: 0 0 44px; padding: 0;" onclick="alert('拉起 HarmonyOS systemShare 系统分享面板')">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="18" cy="5" r="3"/>
+              <circle cx="6" cy="12" r="3"/>
+              <circle cx="18" cy="19" r="3"/>
+              <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/>
+              <line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 规范与设计要点说明 -->
+  <div class="specs-section">
+    <h3 style="font-size: 15px; font-weight: 700;">分享卡片技术规范与体验考量</h3>
+    <div class="specs-grid">
+      <div class="spec-item">
+        <h4>1. 为什么不用详情页长截图？</h4>
+        <p>详情页包含返回键、二级 Tab、评论输入框、浮动 Dock、点赞列表等大量操作性控件。分享到微信/社交平台时，读者需要的是纯粹、优美、无打扰的博文阅读，而非带有一堆无效按钮的软件截图。</p>
+      </div>
+      <div class="spec-item">
+        <h4>2. componentSnapshot 离屏/组件快照</h4>
+        <p>采用 ArkUI 的 <code>getUIContext().getComponentSnapshot().get(cardId)</code>，精准将纯净的 Card 容器转为 PixelMap，再通过 <code>ImagePacker</code> 导出 PNG，分辨率与字体渲染精度达到 1:1 无损效果。</p>
+      </div>
+      <div class="spec-item">
+        <h4>3. 折叠屏与多设备适应</h4>
+        <p>卡片设定固定优雅宽度（标准 360–380vp），在手机与折叠屏展开态下均居中展示并导出固定尺寸卡片，避免在大屏设备上生成被过度拉宽失真的图片。</p>
+      </div>
+      <div class="spec-item">
+        <h4>4. 品牌资产与短链传播</h4>
+        <p>底部优雅印记“Fluo · 沉浸式微博阅读”，不搞刺眼的牛皮癣广告大水印，搭配轻量短链与二维码，既体面又有品牌辨识度。</p>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let currentTheme = 'light';
+    let currentContentType = 'text';
+
+    const sampleImages = [
+      'https://wx1.sinaimg.cn/mw690/006Zdyyvly8h75w85050tj30u00u0tai.jpg',
+      'https://wx2.sinaimg.cn/mw690/006Zdyyvly8h75w85050tj30u00u0tai.jpg',
+      'https://wx3.sinaimg.cn/mw690/006Zdyyvly8h75w85050tj30u00u0tai.jpg'
+    ];
+
+    function toggleTheme() {
+      currentTheme = currentTheme === 'light' ? 'dark' : 'light';
+      document.body.setAttribute('data-theme', currentTheme);
+      document.getElementById('themeBtnText').textContent = currentTheme === 'light' ? '切换深色' : '切换浅色';
+    }
+
+    function switchWidth(widthVal) {
+      document.querySelectorAll('.share-card').forEach(card => {
+        card.style.maxWidth = widthVal;
+      });
+      document.querySelectorAll('.controls-bar .seg-pill').forEach(btn => {
+        if (btn.textContent.includes('vp')) {
+          btn.classList.toggle('active', btn.textContent.includes(widthVal.replace('px', '')));
+        }
+      });
+    }
+
+    function switchContentType(type) {
+      currentContentType = type;
+      
+      const buttons = document.querySelectorAll('.controls-bar .seg-pill');
+      buttons[0].classList.toggle('active', type === 'text');
+      buttons[1].classList.toggle('active', type === 'single-img');
+      buttons[2].classList.toggle('active', type === 'multi-img');
+      buttons[3].classList.toggle('active', type === 'repost');
+
+      const mediaA = document.getElementById('mediaA');
+      const mediaB = document.getElementById('mediaB');
+      const mediaC = document.getElementById('mediaC');
+      const repostA = document.getElementById('repostA');
+      const repostB = document.getElementById('repostB');
+      const repostC = document.getElementById('repostC');
+
+      // 重置
+      mediaA.style.display = 'none';
+      mediaB.style.display = 'none';
+      mediaC.style.display = 'none';
+      repostA.style.display = 'none';
+      repostB.style.display = 'none';
+      repostC.style.display = 'none';
+
+      if (type === 'single-img') {
+        const imgHtml = '<div style="background: var(--bg-surface); height: 200px; border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 13px; color: var(--text-tertiary);">[ 优雅摄影配图 16:9 展示 ]</div>';
+        mediaA.innerHTML = imgHtml; mediaA.style.display = 'block';
+        mediaB.innerHTML = imgHtml; mediaB.style.display = 'block';
+        mediaC.innerHTML = imgHtml; mediaC.style.display = 'block';
+      } else if (type === 'multi-img') {
+        const gridHtml = `
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;">
+            <div style="background: var(--bg-surface); aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-tertiary);">图 1</div>
+            <div style="background: var(--bg-surface); aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-tertiary);">图 2</div>
+            <div style="background: var(--bg-surface); aspect-ratio: 1; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--text-tertiary);">图 3</div>
+          </div>
+        `;
+        mediaA.innerHTML = gridHtml; mediaA.style.display = 'block';
+        mediaB.innerHTML = gridHtml; mediaB.style.display = 'block';
+        mediaC.innerHTML = gridHtml; mediaC.style.display = 'block';
+      } else if (type === 'repost') {
+        repostA.style.display = 'block';
+        repostB.style.display = 'block';
+        repostC.style.display = 'block';
+      }
+    }
+
+    function scrollToDialog() {
+      document.getElementById('dialogSection').scrollIntoView({ behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>

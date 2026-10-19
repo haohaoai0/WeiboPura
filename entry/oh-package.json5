@@ -1,9 +1,9 @@
 {
   "name": "entry",
-  "version": "1.0.6",
-  "description": "TiebaPura HarmonyOS entry module",
+  "version": "1.0.0",
+  "description": "Fluo HarmonyOS entry module",
   "main": "",
-  "author": "a307608689-afk",
+  "author": "HaiYangMa13",
   "license": "GPL-3.0",
   "dependencies": {},
   "devDependencies": {},

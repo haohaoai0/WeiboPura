@@ -2,6 +2,8 @@ import { ThreadCard, ThreadItemData, EmptyView, ErrorView, LoadingView } from '.
 import { curves } from '@kit.ArkUI';
 import { WeiboPost, WeiboSuggestion } from '../model/WeiboModel';
 import { WeiboService } from '../service/WeiboService';
+import { common } from '@kit.AbilityKit';
+import { ShareUtil } from '../common/ShareUtil';
 import { ImmBlur, ImmMaterial, Radius, Spacing, Theme, fs, isDarkMode } from '../common/Theme';
 
 enum SearchLoadState {
@@ -123,8 +125,17 @@ export struct WeiboSearch {
     }
   }
 
+  private sharePost(post: WeiboPost): void {
+    const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
+    ShareUtil.shareLink(this.getUIContext(), context, `https://m.weibo.cn/detail/${post.id}`,
+      post.userName, post.text);
+  }
+
   private toThreadCard(post: WeiboPost): ThreadItemData {
-    const firstImage: string = post.pictures.length > 0 ? post.pictures[0] : '';
+    const original: WeiboPost | null = post.repost;
+    const mediaPost: WeiboPost = (post.pictures.length > 0 || post.videoUrl.length > 0 || original === null)
+      ? post : original;
+    const firstImage: string = mediaPost.pictures.length > 0 ? mediaPost.pictures[0] : '';
     const titleText: string = post.text.length > 0 ? post.text : post.userName;
     return {
       tid: post.id,
@@ -139,11 +150,13 @@ export struct WeiboSearch {
       replyNum: post.commentCount,
       likeCount: post.likeCount,
       isLiked: post.isLiked,
-      abstract: post.repost === null ? '' : post.repost.text,
+      abstract: original === null ? '' : original.text,
+      repostAuthor: original === null ? '' : original.userName,
+      isSocialPost: true,
       firstImage: firstImage,
-      images: post.pictures,
-      videoUrl: post.videoUrl,
-      videoCoverUrl: post.videoCoverUrl,
+      images: mediaPost.pictures,
+      videoUrl: mediaPost.videoUrl,
+      videoCoverUrl: mediaPost.videoCoverUrl,
       createTime: post.createdAt,
       isTop: false,
       isGood: false,
@@ -156,6 +169,15 @@ export struct WeiboSearch {
       return;
     }
     this.onOpenPost(post);
+  }
+
+  private openOriginalPost(post: WeiboPost): void {
+    const original: WeiboPost | null = post.repost;
+    if (original === null || original.id.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: $r('app.string.weibo_post_unavailable') });
+      return;
+    }
+    this.openPost(original);
   }
 
   private openUserProfile(userId: string, userName: string): void {
@@ -229,7 +251,10 @@ export struct WeiboSearch {
               ThreadCard({
                 item: this.toThreadCard(post),
                 onTap: (_id: string): void => { this.openPost(post); },
+                onAbstractTap: (): void => { this.openOriginalPost(post); },
+                abstractIsLink: post.repost !== null,
                 onComment: (_id: string): void => { this.openPost(post); },
+                onShare: (): void => { this.sharePost(post); },
                 onAvatarTap: (id: string, name: string): void => { this.openUserProfile(id, name); },
                 onImageTap: (urls: string[], index: number): void => { this.openImagePreview(urls, index); },
                 skipImageCache: true,

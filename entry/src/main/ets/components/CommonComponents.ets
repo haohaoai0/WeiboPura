@@ -1,3 +1,4 @@
+import { WEIBO_TAP_MAX_MOVEMENT } from '../common/WeiboTabSwipe';
 /*
  * TiebaPura - HarmonyOS 原生 ArkTS 实现的第三方百度贴吧客户端
  * Copyright (C) 2026 a307608689-afk
@@ -18,6 +19,9 @@
 
 import { Theme, Spacing, Radius, isDarkMode, ImmBlur, ImmMaterial, fs } from '../common/Theme';
 import { ImageCache } from '../cache/ImageCache';
+import { Haptic } from '../common/Haptic';
+import { WeiboVideoPlayer } from './WeiboVideoPlayer';
+import { WeiboRichTextView } from './WeiboRichTextView';
 import { curves, display } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { hdsEffect } from '@kit.UIDesignKit';
@@ -71,12 +75,17 @@ export interface ThreadItemData {
   likeCount?: number;
   isLiked?: boolean;     // 是否已点赞
   abstract: string;
+  /** Optional original author shown before a forwarded social post body. */
+  repostAuthor?: string;
+  /** Uses content-first social typography instead of a forum thread headline. */
+  isSocialPost?: boolean;
   firstImage: string;
   images?: string[];
   /** Optional public MP4 stream. Empty for ordinary text/image posts. */
   videoUrl?: string;
   /** Poster shown by the native video player while a stream prepares. */
   videoCoverUrl?: string;
+  videoAspectRatio?: number;
   createTime: string;
   isTop: boolean;
   isGood?: boolean;
@@ -258,6 +267,8 @@ export struct ThreadCard {
     likeCount: 0,
     isLiked: false,
     abstract: '',
+    repostAuthor: '',
+    isSocialPost: false,
     firstImage: '',
     images: [],
     videoUrl: '',
@@ -267,6 +278,9 @@ export struct ThreadCard {
     isGood: false,
   };
   onTap: (tid: string) => void = () => {};
+  /** Optional nested-content action, used by Weibo cards to open the original repost. */
+  onAbstractTap: () => void = () => {};
+  @Prop abstractIsLink: boolean = false;
   onLike: (tid: string, postId: string, liked: boolean) => void = () => {};
   // 分享回调：由父组件(Index/ThreadList)注入实现，拉起鸿蒙系统分享面板
   onShare: (data: ThreadSharePayload) => void = () => {};
@@ -274,6 +288,8 @@ export struct ThreadCard {
   onComment: (tid: string) => void = () => {};
   // 头像点击回调：由父组件(Index/ThreadList)注入实现，跳转用户主页
   onAvatarTap: (authorId: string, author: string) => void = () => {};
+  onTopicTap: (topic: string) => void = () => {};
+  onMentionTap: (name: string) => void = () => {};
   /** Parent-owned image navigation; non-Weibo callers retain their existing behavior. */
   onImageTap: (urls: string[], index: number) => void = () => {};
   /**
@@ -283,6 +299,7 @@ export struct ThreadCard {
   @Prop skipImageCache: boolean = false;
   private videoController: VideoController = new VideoController();
   @State videoLoadFailed: boolean = false;
+  @State avatarFailed: boolean = false;
 
   /**
    * 操作栏收紧判定（docs/TiebaPura阔直屏适配.md，2026-09-15 用户云调试反馈：阔直屏竖 2 列
@@ -318,6 +335,10 @@ export struct ThreadCard {
    * 由各多列页**无条件**写入（单列也写 1），避免跨页残留（§6.1 D1 / D6）。
    */
   @StorageProp('cardColumns') cardColumns: number = 1;
+  /** 卡片实测宽度（vp）：媒体几何改按真实卡宽分档，不再依赖全局 cardColumns——
+   *  宽窗/折叠屏下搜索页、详情页等单卡全宽场景 cardColumns 可能是别的页写入的残留值，
+   *  导致多图格被压成 100vp 小方块、单图被 maxHeight 裁扁（2026-10 用户反馈）。 */
+  @State cardWidth: number = 0;
   @State imageFailed: boolean = false;
   /** Press feedback only affects composited properties; card layout remains stable. */
   @State contentScale: number = 1;
@@ -366,7 +387,6 @@ export struct ThreadCard {
    */
   private async retryOrFail(u: string | undefined): Promise<void> {
     if (this.skipImageCache) {
-      this.imageFailed = true;
       return;
     }
     if (!u) {
@@ -485,10 +505,29 @@ export struct ThreadCard {
     await Promise.all(tasks);
   }
 
-  /** 把原 URL 解析为本地缓存路径（命中）或原 URL（未命中） */
+  /** 把原 URL 解析为本地缓存路径（命中）或原 URL（未命中），并确保使用 HTTPS */
   private resolveImgUrl(u: string | undefined): string {
     if (!u) return '';
-    return this.cachedImageMap[u] ?? u;
+    const resolved = this.cachedImageMap[u] ?? u;
+    if (resolved.startsWith('http://')) {
+      return `https://${resolved.substring(7)}`;
+    }
+    if (resolved.startsWith('//')) {
+      return `https:${resolved}`;
+    }
+    return resolved;
+  }
+
+  private resolveAvatarUrl(u: string | undefined): string {
+    if (!u) return '';
+    const trimmed = u.trim();
+    if (trimmed.startsWith('http://')) {
+      return `https://${trimmed.substring(7)}`;
+    }
+    if (trimmed.startsWith('//')) {
+      return `https:${trimmed}`;
+    }
+    return trimmed;
   }
 
   private getItem(): ThreadItemData {
@@ -501,6 +540,43 @@ export struct ThreadCard {
       return Math.min(imgs.length, 9);
     }
     return 0;
+  }
+
+  /** 卡内媒体区可用宽度：实测卡宽 − 左右各 16 内边距；未测到时按屏宽估算。 */
+  private mediaWidth(): number {
+    if (this.cardWidth > 0) {
+      return this.cardWidth - 32;
+    }
+    try {
+      const d: display.Display = display.getDefaultDisplaySync();
+      const screenW: number = this.getUIContext().px2vp(d.width);
+      return screenW - Spacing.lg * 2 - 32;
+    } catch (e) {
+      return 328;
+    }
+  }
+
+  /** 单图高度上限：窄卡（多列瀑布 ~200vp）等比小图；手机单列档保持 220 基线；
+   *  宽卡（折叠屏/平板单卡全宽）放宽到 380，避免 16:10 被裁成扁条。 */
+  private singleImageMaxHeight(): number {
+    const w: number = this.mediaWidth();
+    if (w < 300) {
+      return 220;
+    }
+    if (w < 420) {
+      return 220;
+    }
+    return 380;
+  }
+
+  /** 多图格是否走「固定小格」旧档：仅手机单列档（卡宽 < 420）保持改造前的 140/100 固定格高；
+   *  更宽的卡一律用 1:1 正方形填满格，格宽即卡宽均分，消灭宽窗下的缝隙与小方块。 */
+  private useFixedGridCells(): boolean {
+    return this.mediaWidth() < 420;
+  }
+
+  private isNarrowMultiColumn(): boolean {
+    return this.mediaWidth() < 300;
   }
 
   private updateContentPress(event?: TouchEvent): void {
@@ -521,34 +597,39 @@ export struct ThreadCard {
         // 作者信息行
         Row({ space: 10 }) {
           // 作者头像（独立点击进用户主页；stopPropagation 避免触发整卡跳详情）
-          if (this.getItem().authorAvatar && this.getItem().authorAvatar!.length > 0) {
-            Image(this.getItem().authorAvatar!)
-              .width(40)
-              .height(40)
-              .borderRadius(20)
-              .objectFit(ImageFit.Cover)
-              .clip(true)
-              .hitTestBehavior(HitTestMode.Block)
-              .onClick(() => {
-                this.onAvatarTap(this.getItem().authorId ?? '', this.getItem().author);
-              })
-          } else {
-            Stack() {
-              Text(this.getItem().author.charAt(0))
-                .fontSize(fs(18, this.fontScale))
-                .fontWeight(FontWeight.Bold)
-                .fontColor(Color.White)
+          Stack() {
+            Text((this.getItem().author && this.getItem().author.length > 0) ? this.getItem().author.charAt(0) : '微')
+              .fontSize(fs(18, this.fontScale))
+              .fontWeight(FontWeight.Bold)
+              .fontColor(Color.White)
+            if (this.getItem().authorAvatar && this.getItem().authorAvatar!.length > 0 && !this.avatarFailed) {
+              Image(this.resolveAvatarUrl(this.getItem().authorAvatar))
+                .width(40)
+                .height(40)
+                .borderRadius(20)
+                .border({ width: 0.5, color: isDarkMode() ? 'rgba(255, 255, 255, 0.12)' : 'rgba(0, 0, 0, 0.08)', radius: 20 })
+                .objectFit(ImageFit.Cover)
+                .clip(true)
+                .onError((err: ImageError) => {
+                  hilog.error(LOG_DOMAIN, 'AvatarDebug', 'ThreadCard avatar onError author=%{public}s url=%{public}s',
+                    this.getItem().author, this.getItem().authorAvatar);
+                  this.avatarFailed = true;
+                })
+                .onComplete((msg) => {
+                  hilog.info(LOG_DOMAIN, 'AvatarDebug', 'ThreadCard avatar onComplete author=%{public}s url=%{public}s w=%{public}d h=%{public}d',
+                    this.getItem().author, this.getItem().authorAvatar, msg?.width ?? 0, msg?.height ?? 0);
+                })
             }
-            .width(40)
-            .height(40)
-            .borderRadius(20)
-            .backgroundColor(Theme.brand())
-            .alignContent(Alignment.Center)
-            .hitTestBehavior(HitTestMode.Block)
-            .onClick(() => {
-              this.onAvatarTap(this.getItem().authorId ?? '', this.getItem().author);
-            })
           }
+          .width(40)
+          .height(40)
+          .borderRadius(20)
+          .backgroundColor(Theme.brand())
+          .alignContent(Alignment.Center)
+          .hitTestBehavior(HitTestMode.Default)
+          .onClick(() => {
+            this.onAvatarTap(this.getItem().authorId ?? '', this.getItem().author);
+          }, WEIBO_TAP_MAX_MOVEMENT)
 
           // 作者名和时间
           Column({ space: 2 }) {
@@ -556,11 +637,11 @@ export struct ThreadCard {
               .fontSize(fs(15, this.fontScale))
               .fontWeight(FontWeight.Medium)
               .fontColor(Theme.textPrimary(isDarkMode()))
-              .hitTestBehavior(HitTestMode.Block)
+              .hitTestBehavior(HitTestMode.Default)
               .onClick(() => {
-                // 点击作者名跳用户主页（Block 阻断冒泡，避免触发整卡跳详情）
+                // 点击作者名跳用户主页（Default 允许拖拽滚动手势穿透到外层滚动组件）
                 this.onAvatarTap(this.getItem().authorId ?? '', this.getItem().author);
-              })
+              }, WEIBO_TAP_MAX_MOVEMENT)
             Text(this.getItem().createTime)
               .fontSize(fs(12, this.fontScale))
               .fontColor(Theme.textTertiary(isDarkMode()))
@@ -571,25 +652,70 @@ export struct ThreadCard {
         .width('100%')
         .padding({ left: 16, right: 16, top: 16 })
 
-        // 标题
+        // 微博正文使用同一富文本解析器；论坛标题保持原样。
+        if (this.getItem().isSocialPost === true) {
+          WeiboRichTextView({ text: this.getItem().title, fontSize: fs(16, this.fontScale),
+            lineHeight: fs(24, this.fontScale), fontColor: Theme.textPrimary(isDarkMode()),
+            maxLines: this.cardColumns > 1 ? 3 : 6,
+            onTopicClick: (topic: string): void => { this.onTopicTap(topic); },
+            onMentionClick: (name: string): void => { this.onMentionTap(name); }
+          }).width('100%').padding({ left: 16, right: 16, top: 8 })
+        } else {
         Text(this.getItem().title)
-          .fontSize(fs(17, this.fontScale))
-          .fontWeight(FontWeight.Bold)
+          .fontSize(fs(this.getItem().isSocialPost === true ? 16 : 17, this.fontScale))
+          .fontWeight(this.getItem().isSocialPost === true ? FontWeight.Regular : FontWeight.Bold)
           .fontColor(Theme.textPrimary(isDarkMode()))
-          .maxLines(2)
+          .lineHeight(fs(this.getItem().isSocialPost === true ? 24 : 22, this.fontScale))
+          .maxLines(this.getItem().isSocialPost === true ? (this.cardColumns > 1 ? 3 : 6) : 2)
           .textOverflow({ overflow: TextOverflow.Ellipsis })
           .width('100%')
           .padding({ left: 16, right: 16, top: 8 })
+        }
 
         // 正文摘要：多列档降为 2 行（列窄、一屏要放下更多卡），单列逐像素维持现状 4 行
         if (this.getItem().abstract.length > 0) {
-          Text(this.getItem().abstract)
-            .fontSize(fs(14, this.fontScale))
-            .fontColor(Theme.textSecondary(isDarkMode()))
-            .maxLines(this.cardColumns > 1 ? 2 : 4)
-            .textOverflow({ overflow: TextOverflow.Ellipsis })
-            .width('100%')
-            .padding({ left: 16, right: 16, top: 6 })
+          if (this.abstractIsLink) {
+            Row() {
+              if (this.getItem().isSocialPost === true) {
+                WeiboRichTextView({ text: `@${this.getItem().repostAuthor ?? ''}：${this.getItem().abstract}`,
+                  fontSize: fs(14, this.fontScale), lineHeight: fs(21, this.fontScale),
+                  fontColor: Theme.textPrimary(isDarkMode()), maxLines: this.cardColumns > 1 ? 3 : 6,
+                  onTopicClick: (topic: string): void => { this.onTopicTap(topic); },
+                  onMentionClick: (name: string): void => { this.onMentionTap(name); }
+                }).width('100%')
+              } else {
+              Text() {
+                if (this.getItem().repostAuthor !== undefined && this.getItem().repostAuthor!.length > 0) {
+                  Span(`@${this.getItem().repostAuthor!}：`)
+                    .fontWeight(FontWeight.Medium)
+                    .fontColor(Theme.brand())
+                }
+                Span(this.getItem().abstract)
+                  .fontColor(Theme.textPrimary(isDarkMode()))
+              }
+              .fontSize(fs(14, this.fontScale))
+              .lineHeight(fs(21, this.fontScale))
+              .maxLines(this.cardColumns > 1 ? 3 : 6)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+              }
+            }
+            .padding({ left: 10, right: 10, top: 8, bottom: 8 })
+            .margin({ left: 16, right: 16, top: 6 })
+            .backgroundColor(isDarkMode() ? '#14FFFFFF' : '#06000000')
+            .borderRadius(Radius.md)
+            .hitTestBehavior(HitTestMode.Default)
+            .accessibilityText(`查看${this.getItem().repostAuthor ?? ''}的原微博`)
+            .onClick((): void => { this.onAbstractTap(); }, WEIBO_TAP_MAX_MOVEMENT)
+          } else {
+            Text(this.getItem().abstract)
+              .fontSize(fs(14, this.fontScale))
+              .fontColor(Theme.textSecondary(isDarkMode()))
+              .maxLines(this.cardColumns > 1 ? 2 : 4)
+              .textOverflow({ overflow: TextOverflow.Ellipsis })
+              .width('100%')
+              .padding({ left: 16, right: 16, top: 6 })
+          }
         }
 
         // 视频优先用系统 Video 播放器承载，避免将视频帖误当作静态封面图。
@@ -646,7 +772,7 @@ export struct ThreadCard {
         if (tid.length > 0) {
           this.onTap(tid);
         }
-      })
+      }, WEIBO_TAP_MAX_MOVEMENT)
 
       // ========== 操作栏（独立区域）：分享/评论/点赞三胶囊，完全不在跳转详情的点击区域内 ==========
       // 窄卡收紧模式（actionCompact）：图标 15/文字 11/内距 4/高 30/圆角 15/外距 8——
@@ -681,7 +807,7 @@ export struct ThreadCard {
             firstImage: this.getItem().firstImage
           };
           this.onShare(payload);
-        })
+        }, WEIBO_TAP_MAX_MOVEMENT)
         
         // 评论按钮 - 玻璃胶囊背景不变 + 实心气泡三点图标 ellipsis_message_fill（与分享 sys.symbol.share 同为填充风格，避免描边图标过细）
         Row({ space: this.actionCompact() ? 4 : 6 }) {
@@ -707,7 +833,7 @@ export struct ThreadCard {
           if (tid.length > 0) {
             this.onComment(tid);
           }
-        })
+        }, WEIBO_TAP_MAX_MOVEMENT)
         
         // 点赞按钮 - 玻璃胶囊背景不变 + 简约心形轮廓/实心SymbolGlyph（匹配参考图一）
         Row({ space: this.actionCompact() ? 4 : 6 }) {
@@ -740,15 +866,22 @@ export struct ThreadCard {
           const targetPid = postId.length > 0 ? postId : '0';
           const liked = !this.getItem().isLiked;
           if (tid.length > 0) {
+            Haptic.light();
             this.onLike(tid, targetPid, liked);
           }
-        })
+        }, WEIBO_TAP_MAX_MOVEMENT)
       }
       .width('100%')
       .padding({ left: 16, right: 16, top: 12, bottom: 14 })
     }
     .width('100%')
     .backgroundColor(Theme.bgCard(isDarkMode()))
+    .onAreaChange((_oldValue: Area, newValue: Area): void => {
+      const w: number = Number(newValue.width);
+      if (w > 0 && Math.abs(w - this.cardWidth) > 1) {
+        this.cardWidth = w;
+      }
+    })
     // 卡片圆角 26：与帖子详情页卡片（楼主卡 / 楼层卡）统一口径，不借用全局 Radius.lg（=16）。
     // 注：卡内「分享/评论/点赞」胶囊圆角 18、距卡片底 14，严格同心应为 18 + 14 = 32；
     // 26 是按统一视觉口径取的值（比 32 略收敛，胶囊与外角不再严格同心，观感更克制）。
@@ -770,6 +903,10 @@ export struct ThreadCard {
     const u: string = this.getItem().images![0];
     hilog.warn(LOG_DOMAIN, TAG, 'onError single url=%{public}s', shortUrl(u));
     ImageCache.debugLog(`card onError single url=${shortUrl(u)}`);
+    if (this.skipImageCache) {
+      this.imageFailed = true;
+      return;
+    }
     this.retryOrFail(u);
   }
 
@@ -793,6 +930,9 @@ export struct ThreadCard {
   private handleGridImageError(img: string): void {
     hilog.warn(LOG_DOMAIN, TAG, 'onError grid url=%{public}s', shortUrl(img));
     ImageCache.debugLog(`card onError grid url=${shortUrl(img)}`);
+    if (this.skipImageCache) {
+      return;
+    }
     this.retryOrFail(img);
   }
 
@@ -808,45 +948,8 @@ export struct ThreadCard {
 
   @Builder
   VideoPlayer() {
-    Stack() {
-      Video({
-        src: this.getItem().videoUrl ?? '',
-        previewUri: this.getItem().videoCoverUrl ?? '',
-        controller: this.videoController
-      })
-        .width('100%')
-        .height(220)
-        .controls(true)
-        .autoPlay(false)
-        .loop(false)
-        .objectFit(ImageFit.Contain)
-        .backgroundColor(Color.Transparent)
-        .borderRadius(Radius.md)
-        .onError((): void => {
-          this.videoLoadFailed = true;
-        })
-      if (this.videoLoadFailed) {
-        Column({ space: 8 }) {
-          Text('视频暂时无法播放')
-            .fontSize(fs(13, this.fontScale))
-            .fontColor(Color.White)
-          Text('请稍后重试')
-            .fontSize(fs(12, this.fontScale))
-            .fontColor('#CCFFFFFF')
-        }
-        .width('100%')
-        .height(220)
-        .justifyContent(FlexAlign.Center)
-        .alignItems(HorizontalAlign.Center)
-        .backgroundColor('#99000000')
-        .borderRadius(Radius.md)
-      }
-    }
-    .width('100%')
-    .height(220)
-    .backgroundColor(Color.Black)
-    .borderRadius(Radius.md)
-    .clip(true)
+    WeiboVideoPlayer({ src: this.getItem().videoUrl ?? '', cover: this.getItem().videoCoverUrl ?? '',
+      videoRatio: this.getItem().videoAspectRatio ?? 16 / 9 })
   }
 
   @Builder
@@ -872,36 +975,53 @@ export struct ThreadCard {
       .padding(12)
       .backgroundColor(Theme.bgCard(isDarkMode()))
       .borderRadius(Radius.md)
-      .hitTestBehavior(HitTestMode.Block)
+      .hitTestBehavior(HitTestMode.Default)
       .onClick(() => {
         this.onTap(this.getItem().tid);
-      })
+      }, WEIBO_TAP_MAX_MOVEMENT)
     } else if (this.getImageCount() === 1) {
-          // 单图：单列档逐像素保持 height(220)；多列档列宽变窄，改 16:10 比例，
-          // 避免"列宽 240 时接近方形 / 列宽 400 时明显变扁"（§4.2 决策 6）。
-          // 封顶 220：列宽变宽时 aspectRatio(1.6) 会等比放大高度，真机上出现"图比手机还大"，
-          // 锁死手机基线高度后只横向扩展、纵向不再无限放大。
-          if (this.cardColumns > 1) {
-            Image(this.resolveImgUrl(this.getItem().images![0]))
-              .width('100%')
-              .aspectRatio(1.6)
-              .constraintSize({ maxHeight: 220 })
-              .borderRadius(Radius.md)
-              .objectFit(ImageFit.Cover)
-              .onError(() => {
-                this.handleSingleImageError();
-              })
-              .onComplete((event) => {
-                if (!event) return;
-                this.handleSingleImageComplete(event.loadingStatus, event.width, event.height);
-              })
-              .onClick(() => {
-                this.onImageTap(this.getItem().images!, 0);
-              })
+          // 单图：按实测卡宽分档。卡宽 < 420（手机单列 / 窄多列）逐像素保持旧行为；
+          // 宽卡（折叠屏/平板单卡全宽）用 16:10 + 更高的高度上限，不再被 220 裁扁。
+          if (this.useFixedGridCells()) {
+            if (this.isNarrowMultiColumn()) {
+              Image(this.resolveImgUrl(this.getItem().images![0]))
+                .width('100%')
+                .aspectRatio(1.6)
+                .constraintSize({ maxHeight: 220 })
+                .borderRadius(Radius.md)
+                .objectFit(ImageFit.Cover)
+                .onError(() => {
+                  this.handleSingleImageError();
+                })
+                .onComplete((event) => {
+                  if (!event) return;
+                  this.handleSingleImageComplete(event.loadingStatus, event.width, event.height);
+                })
+                .onClick(() => {
+                  this.onImageTap(this.getItem().images!, 0);
+                }, WEIBO_TAP_MAX_MOVEMENT)
+            } else {
+              Image(this.resolveImgUrl(this.getItem().images![0]))
+                .width('100%')
+                .height(220)
+                .borderRadius(Radius.md)
+                .objectFit(ImageFit.Cover)
+                .onError(() => {
+                  this.handleSingleImageError();
+                })
+                .onComplete((event) => {
+                  if (!event) return;
+                  this.handleSingleImageComplete(event.loadingStatus, event.width, event.height);
+                })
+                .onClick(() => {
+                  this.onImageTap(this.getItem().images!, 0);
+                }, WEIBO_TAP_MAX_MOVEMENT)
+            }
           } else {
             Image(this.resolveImgUrl(this.getItem().images![0]))
               .width('100%')
-              .height(220)
+              .aspectRatio(1.6)
+              .constraintSize({ maxHeight: this.singleImageMaxHeight() })
               .borderRadius(Radius.md)
               .objectFit(ImageFit.Cover)
               .onError(() => {
@@ -913,39 +1033,56 @@ export struct ThreadCard {
               })
               .onClick(() => {
                 this.onImageTap(this.getItem().images!, 0);
-              })
+              }, WEIBO_TAP_MAX_MOVEMENT)
           }
         } else {
           // 多图网格（2-9张），使用 Grid 实现均匀间距
           Grid() {
             ForEach(this.getItem().images!.slice(0, this.getImageCount()), (img: string, idx: number) => {
               GridItem() {
-                // 多图格几何：单列档保持现状格高（2/4 张 140、其余 100）；多列档列宽随列数变，
-                // 改 1:1 比例，避免比例失真（§4.2 决策 6）。两种写法互斥（height 与 aspectRatio 同设会冲突）。
-                // 封顶同单列档：防止列宽变宽后多图格也变得比手机大。
-                if (this.cardColumns > 1) {
-                  Image(this.resolveImgUrl(img))
-                    .width('100%')
-                    .aspectRatio(1)
-                    .constraintSize({
-                      maxHeight: (this.getImageCount() === 2 || this.getImageCount() === 4) ? 140 : 100
-                    })
-                    .borderRadius(Radius.md)
-                    .objectFit(ImageFit.Cover)
-                    .onError(() => {
-                      this.handleGridImageError(img);
-                    })
-                    .onComplete((event) => {
-                      if (!event) return;
-                      this.handleGridImageComplete(img, event.loadingStatus, event.width, event.height);
-                    })
-                    .onClick(() => {
-                      this.onImageTap(this.getItem().images!, idx);
-                    })
+                // 多图格几何：卡宽 < 420（手机单列 / 窄多列）保持旧档固定格高（2/4 张 140、其余 100）；
+                // 宽卡用 1:1 正方形填满格（不设 maxHeight，否则宽格里被压成小方块、列间出现大缝）。
+                if (this.useFixedGridCells()) {
+                  if (this.isNarrowMultiColumn()) {
+                    Image(this.resolveImgUrl(img))
+                      .width('100%')
+                      .aspectRatio(1)
+                      .constraintSize({
+                        maxHeight: (this.getImageCount() === 2 || this.getImageCount() === 4) ? 140 : 100
+                      })
+                      .borderRadius(Radius.md)
+                      .objectFit(ImageFit.Cover)
+                      .onError(() => {
+                        this.handleGridImageError(img);
+                      })
+                      .onComplete((event) => {
+                        if (!event) return;
+                        this.handleGridImageComplete(img, event.loadingStatus, event.width, event.height);
+                      })
+                      .onClick(() => {
+                        this.onImageTap(this.getItem().images!, idx);
+                      }, WEIBO_TAP_MAX_MOVEMENT)
+                  } else {
+                    Image(this.resolveImgUrl(img))
+                      .width('100%')
+                      .height((this.getImageCount() === 2 || this.getImageCount() === 4) ? 140 : 100)
+                      .borderRadius(Radius.md)
+                      .objectFit(ImageFit.Cover)
+                      .onError(() => {
+                        this.handleGridImageError(img);
+                      })
+                      .onComplete((event) => {
+                        if (!event) return;
+                        this.handleGridImageComplete(img, event.loadingStatus, event.width, event.height);
+                      })
+                      .onClick(() => {
+                        this.onImageTap(this.getItem().images!, idx);
+                      }, WEIBO_TAP_MAX_MOVEMENT)
+                  }
                 } else {
                   Image(this.resolveImgUrl(img))
                     .width('100%')
-                    .height((this.getImageCount() === 2 || this.getImageCount() === 4) ? 140 : 100)
+                    .aspectRatio(1)
                     .borderRadius(Radius.md)
                     .objectFit(ImageFit.Cover)
                     .onError(() => {
@@ -957,7 +1094,7 @@ export struct ThreadCard {
                     })
                     .onClick(() => {
                       this.onImageTap(this.getItem().images!, idx);
-                    })
+                    }, WEIBO_TAP_MAX_MOVEMENT)
                 }
               }
             }, (img: string, idx: number) => `${idx}`)

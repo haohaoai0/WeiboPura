@@ -9,7 +9,7 @@ import {
 import { UsageHabitsManager } from '../service/UsageHabitsManager';
 import { HdsNavigation, HdsNavigationTitleMode, ScrollEffectType, hdsMaterial } from '@kit.UIDesignKit';
 
-const ACCENT_OPTIONS: string[] = ['#E6162D', '#007DFF', '#7856FF', '#00A870', '#F59E0B'];
+const ACCENT_OPTIONS: string[] = ['#4EAA78', '#007DFF', '#7856FF', '#00A870', '#F59E0B'];
 
 @Entry
 @Component
@@ -17,7 +17,7 @@ export struct WeiboSettings {
   @State isDark: boolean = isDarkMode();
   @StorageLink('fontScale') fontScale: number = 1.0;
   @StorageLink('darkTick') @Watch('onDarkTick') darkTick: number = 0;
-  @StorageLink('appAccentColor') accentColor: string = '#E6162D';
+  @StorageLink('appAccentColor') accentColor: string = '#4EAA78';
   @StorageLink('appLanguage') appLanguage: string = APP_LANGUAGE_ZH_CN;
   @StorageLink('homeTabMaterialLevel') homeTabMaterialLevel: number = DEFAULT_HOME_TAB_MATERIAL_LEVEL;
   @StorageLink('columnMode') columnMode: number = 0;

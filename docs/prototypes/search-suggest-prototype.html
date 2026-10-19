@@ -1,0 +1,1360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo · 搜索建议与词条直达交互原型 (Search Suggestions & Entity Match)</title>
+  <style>
+    :root {
+      --brand: #3A8E60;
+      --brand-bright: #4EAA78;
+      --brand-light: rgba(58, 142, 96, 0.12);
+      --brand-border: rgba(58, 142, 96, 0.32);
+      --bg: #EEF2EF;
+      --bg-card: #FFFFFF;
+      --bg-card-sub: rgba(0, 0, 0, 0.035);
+      --bg-input: rgba(0, 0, 0, 0.055);
+      --text-primary: #121814;
+      --text-secondary: #4A564F;
+      --text-tertiary: #7D8D84;
+      --border-subtle: rgba(0, 0, 0, 0.08);
+      --hot-color: #E66A10;
+      --topic-color: #3A8E60;
+      --gold-v: #FFB800;
+      --blue-v: #1B75D0;
+
+      --device-shell-border: #D6DFD9;
+      --device-shadow: 0 20px 50px rgba(18, 38, 28, 0.12);
+      --font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", Roboto, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --brand: #57C98D;
+      --brand-bright: #6EDB9E;
+      --brand-light: rgba(87, 201, 141, 0.2);
+      --brand-border: rgba(87, 201, 141, 0.42);
+      --bg: #0C100E;
+      --bg-card: #202B25;
+      --bg-card-sub: rgba(255, 255, 255, 0.08);
+      --bg-input: rgba(255, 255, 255, 0.12);
+      --text-primary: #FFFFFF;
+      --text-secondary: #C0D0C6;
+      --text-tertiary: #8A9E93;
+      --border-subtle: rgba(255, 255, 255, 0.14);
+      --hot-color: #FFA554;
+      --topic-color: #57C98D;
+      --gold-v: #FFB800;
+      --blue-v: #2A82E4;
+
+      --device-shell-border: #2D3D34;
+      --device-shadow: 0 28px 70px rgba(0, 0, 0, 0.7);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: #080B09;
+      color: #EDF2EE;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px 80px;
+    }
+
+    /* 顶部控制面板 */
+    .top-panel {
+      width: 100%;
+      max-width: 1320px;
+      background: #121A15;
+      border: 1px solid rgba(255, 255, 255, 0.09);
+      border-radius: 20px;
+      padding: 22px 28px;
+      margin-bottom: 28px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+
+    .top-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+      padding-bottom: 16px;
+      margin-bottom: 18px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-logo {
+      width: 38px;
+      height: 38px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #4EAA78, #285E42);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 20px;
+      color: #FFF;
+      box-shadow: 0 4px 14px rgba(78, 170, 120, 0.35);
+    }
+
+    .brand-title h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: #EDF2EE;
+    }
+
+    .brand-title .badge {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 6px;
+      background: rgba(78, 170, 120, 0.18);
+      color: #6EDB9E;
+      font-weight: 600;
+      border: 1px solid rgba(78, 170, 120, 0.3);
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .btn {
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 8px 14px;
+      border-radius: 10px;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      background: rgba(255, 255, 255, 0.05);
+      color: #CFD8D3;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .btn:hover {
+      background: rgba(255, 255, 255, 0.1);
+      border-color: rgba(255, 255, 255, 0.2);
+      color: #FFF;
+      transform: translateY(-1px);
+    }
+
+    .btn.active {
+      background: #4EAA78;
+      border-color: #4EAA78;
+      color: #FFF;
+      box-shadow: 0 4px 14px rgba(78, 170, 120, 0.35);
+    }
+
+    /* 调研结论卡片 */
+    .research-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+    }
+
+    .research-card {
+      background: rgba(255, 255, 255, 0.035);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+      border-radius: 12px;
+      padding: 13px 16px;
+    }
+
+    .research-card h3 {
+      font-size: 13px;
+      font-weight: 700;
+      color: #6EDB9E;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .research-card p {
+      font-size: 12px;
+      line-height: 1.6;
+      color: #A3B3AA;
+    }
+
+    /* 原型展示主区域：三联并排 */
+    .prototypes-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 32px;
+      width: 100%;
+      max-width: 1340px;
+    }
+
+    .device-column {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .device-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: #8E9E95;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .device-label .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+    }
+
+    /* 手机外壳容器 */
+    .device-shell {
+      width: 375px;
+      height: 760px;
+      background: var(--bg);
+      border-radius: 44px;
+      border: 8px solid var(--device-shell-border);
+      box-shadow: var(--device-shadow);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      transition: background 0.3s ease, border-color 0.3s ease;
+    }
+
+    /* 鸿蒙状态栏 */
+    .status-bar {
+      height: 42px;
+      width: 100%;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      z-index: 20;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+    }
+
+    /* 顶部搜索栏 */
+    .search-nav-bar {
+      padding: 4px 14px 10px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      z-index: 20;
+    }
+
+    .back-btn {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-primary);
+      background: transparent;
+      border: none;
+      transition: background 0.2s ease;
+    }
+
+    .back-btn:hover {
+      background: var(--bg-card-sub);
+    }
+
+    .search-input-box {
+      flex: 1;
+      height: 40px;
+      background: var(--bg-input);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      padding: 0 13px;
+      gap: 8px;
+      border: 1.5px solid transparent;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .search-input-box.focused {
+      border-color: var(--brand);
+      background: var(--bg-card);
+      box-shadow: 0 4px 14px rgba(78, 170, 120, 0.16);
+    }
+
+    .search-input-box svg.search-icon {
+      width: 16px;
+      height: 16px;
+      color: var(--text-tertiary);
+      flex-shrink: 0;
+    }
+
+    .search-input-field {
+      flex: 1;
+      border: none;
+      background: transparent;
+      font-size: 14.5px;
+      font-family: inherit;
+      color: var(--text-primary);
+      outline: none;
+      padding: 0;
+      min-width: 0;
+    }
+
+    .search-input-field::placeholder {
+      color: var(--text-tertiary);
+    }
+
+    .clear-btn {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--text-tertiary);
+      color: var(--bg-card);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      cursor: pointer;
+      opacity: 0.85;
+      transition: opacity 0.2s ease;
+    }
+
+    .clear-btn:hover {
+      opacity: 1;
+    }
+
+    .search-action-btn {
+      font-family: inherit;
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--brand);
+      background: transparent;
+      border: none;
+      cursor: pointer;
+      padding: 4px 4px;
+    }
+
+    /* 页面主体内容区 */
+    .page-body {
+      flex: 1;
+      overflow-y: auto;
+      padding: 4px 14px 28px;
+      position: relative;
+    }
+
+    /* 建议面板容器 */
+    .suggestions-container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      animation: fadeIn 0.2s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(-4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    /* 用户直达卡片 (Top User Quick Match) */
+    .user-direct-card {
+      background: var(--bg-card);
+      border: 1px solid var(--brand-border);
+      border-radius: 16px;
+      padding: 12px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.12);
+    }
+
+    .user-direct-card:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.09);
+    }
+
+    .user-avatar-wrap {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+    }
+
+    .user-avatar {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+      font-size: 15px;
+      color: #FFF;
+    }
+
+    .v-badge {
+      position: absolute;
+      bottom: -1px;
+      right: -1px;
+      width: 15px;
+      height: 15px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 800;
+      color: #FFF;
+      border: 2px solid var(--bg-card);
+    }
+
+    .v-badge.gold {
+      background: var(--gold-v);
+    }
+
+    .v-badge.blue {
+      background: var(--blue-v);
+    }
+
+    .user-info {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 2px;
+    }
+
+    .user-name {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .user-badge-tag {
+      font-size: 11px;
+      padding: 1px 6px;
+      border-radius: 4px;
+      background: var(--brand-light);
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    .user-desc {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-bottom: 3px;
+    }
+
+    .user-meta {
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+    }
+
+    .user-action-btn {
+      padding: 5px 12px;
+      border-radius: 14px;
+      background: var(--brand-light);
+      color: var(--brand);
+      border: 1px solid var(--brand-border);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+    }
+
+    .user-action-btn:hover {
+      background: var(--brand);
+      color: #FFF;
+    }
+
+    /* 建议词条列表卡片 */
+    .suggestions-list-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .suggestion-row {
+      padding: 11px 14px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      cursor: pointer;
+      border-bottom: 1px solid var(--border-subtle);
+      transition: background 0.15s ease;
+    }
+
+    .suggestion-row:last-child {
+      border-bottom: none;
+    }
+
+    .suggestion-row:hover {
+      background: var(--bg-card-sub);
+    }
+
+    .suggest-icon {
+      width: 18px;
+      height: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      color: var(--text-tertiary);
+    }
+
+    .suggest-icon.topic {
+      color: var(--brand);
+      font-weight: 800;
+      font-size: 15px;
+    }
+
+    .suggest-content {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-width: 0;
+    }
+
+    .suggest-text {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      letter-spacing: 0.01em;
+    }
+
+    .highlight {
+      color: var(--brand);
+      font-weight: 700;
+    }
+
+    .suggest-tag {
+      font-size: 10.5px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .suggest-tag.topic-tag {
+      background: var(--brand-light);
+      color: var(--brand);
+    }
+
+    .suggest-tag.hot-tag {
+      background: rgba(245, 130, 32, 0.18);
+      color: var(--hot-color);
+    }
+
+    .suggest-tag.new-tag {
+      background: rgba(235, 77, 75, 0.18);
+      color: #EB4D4B;
+    }
+
+    /* 快捷上屏按钮 ↖ */
+    .append-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      background: var(--bg-card-sub);
+      border: 1px solid var(--border-subtle);
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+      transition: all 0.2s ease;
+      flex-shrink: 0;
+    }
+
+    .append-btn:hover {
+      background: var(--brand-light);
+      color: var(--brand);
+      border-color: var(--brand-border);
+      transform: scale(1.12);
+    }
+
+    .append-btn:hover {
+      background: var(--bg-card-sub);
+      color: var(--brand);
+      transform: scale(1.12);
+    }
+
+    /* 空输入状态 (历史记录 + 猜你想搜) */
+    .empty-state-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      animation: fadeIn 0.2s ease;
+    }
+
+    .section-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+
+    .section-title {
+      font-size: 12.5px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .trash-btn {
+      color: var(--text-tertiary);
+      cursor: pointer;
+      background: none;
+      border: none;
+      display: flex;
+      align-items: center;
+      padding: 2px 4px;
+    }
+
+    .trash-btn:hover {
+      color: #E05252;
+    }
+
+    .chips-flow {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .chip-item {
+      padding: 5px 12px;
+      border-radius: 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      font-size: 12.5px;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .chip-item:hover {
+      background: var(--brand-light);
+      border-color: var(--brand-border);
+      color: var(--brand);
+    }
+
+    .hot-list-compact {
+      background: var(--bg-card);
+      border: 1px solid var(--border-subtle);
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.05);
+    }
+
+    .hot-item-row {
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+
+    .hot-item-row:last-child {
+      border-bottom: none;
+    }
+
+    .hot-item-row:hover {
+      background: var(--bg-card-sub);
+    }
+
+    .hot-rank {
+      width: 18px;
+      font-size: 13.5px;
+      font-weight: 800;
+      text-align: center;
+      color: var(--text-tertiary);
+    }
+
+    .hot-rank.rank-1 { color: #E05252; }
+    .hot-rank.rank-2 { color: #F58220; }
+    .hot-rank.rank-3 { color: #EDB322; }
+
+    .hot-word {
+      flex: 1;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-primary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .hot-heat {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    /* 底部悬浮提示条 */
+    .toast-tip {
+      position: absolute;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: rgba(24, 34, 28, 0.94);
+      color: #EDF5F0;
+      border: 1px solid rgba(87, 201, 141, 0.4);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      box-shadow: 0 10px 25px rgba(0, 0, 0, 0.35);
+      backdrop-filter: blur(12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.2, 1);
+      z-index: 50;
+      white-space: nowrap;
+    }
+
+    .toast-tip.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* 底部指示线 */
+    .home-indicator {
+      width: 134px;
+      height: 4px;
+      background: var(--text-tertiary);
+      border-radius: 2px;
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      opacity: 0.35;
+    }
+
+    @media (max-width: 1200px) {
+      .prototypes-wrap {
+        flex-direction: column;
+        align-items: center;
+      }
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <!-- 顶部控制与调研总结面板 -->
+  <div class="top-panel">
+    <div class="top-header">
+      <div class="brand-title">
+        <div class="brand-logo">F</div>
+        <div>
+          <div style="display: flex; align-items: center; gap: 8px;">
+            <h1>Fluo 搜索建议与词条直达原型</h1>
+            <span class="badge">ArkTS / HDS 原生设计规范</span>
+          </div>
+          <p style="font-size: 12px; color: #8E9E95; margin-top: 2px;">
+            基于真实微博现网接口 <code style="color:#6EDB9E; background:rgba(0,0,0,0.3); padding:1px 5px; border-radius:4px;">weibo.com/ajax/side/search?q={query}</code> 结构设计
+          </p>
+        </div>
+      </div>
+
+      <div class="controls-row">
+        <span style="font-size: 12px; color: #8E9E95;">交互机场景：</span>
+        <button class="btn active" id="btnPresetZhong" onclick="setPreset('zhong')">👤 钟文泽 (大V+词条)</button>
+        <button class="btn" id="btnPresetXiaomi" onclick="setPreset('xiaomi')">📱 小米 (产品+超话)</button>
+        <button class="btn" id="btnPresetEmpty" onclick="setPreset('empty')">⚪ 空输入 (历史+热搜)</button>
+        <div style="width: 1px; height: 20px; background: rgba(255,255,255,0.1); margin: 0 4px;"></div>
+        <button class="btn" id="themeToggleBtn" onclick="toggleTheme()">🌓 浅色 / 深色</button>
+      </div>
+    </div>
+
+    <!-- 微博真实接口与交互调研解析 -->
+    <div class="research-grid">
+      <div class="research-card">
+        <h3>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>
+          1. 头部大V/官方号置顶直达 (users[])
+        </h3>
+        <p>搜索精准命中大V或企业号（如“钟文泽”金V或“鸿蒙智行”蓝V）时，接口返回 <code>users[]</code>。Fluo 置顶展示独立微卡片，附带认证头衔、粉丝数与直达主页动作。</p>
+      </div>
+
+      <div class="research-card">
+        <h3>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="4" y1="9" x2="20" y2="9"></line><line x1="4" y1="15" x2="20" y2="15"></line><line x1="10" y1="3" x2="8" y2="21"></line><line x1="16" y1="3" x2="14" y2="21"></line></svg>
+          2. 话题词条与类型标注 (topic_flag)
+        </h3>
+        <p>接口通过 <code>topic_flag === 1</code> 标识微博话题，<code>top_flag === 2</code> 标识热门搜索。原型用绿色 <code>#</code> 符号与 <code>[话题]</code> / <code>[热]</code> 胶囊标识，区分普通查询与热议事件。</p>
+      </div>
+
+      <div class="research-card">
+        <h3>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="7" y1="17" x2="17" y2="7"></line><polyline points="7 7 17 7 17 17"></polyline></svg>
+          3. 快捷上屏辅助 (Append ↖)
+        </h3>
+        <p>微博移动端的关键交互点：右侧提供 <code>↖</code> 箭头按钮。点击该按钮仅将词条填充回输入框供二次补全，不立即跳转结果页，极大降低打字成本。</p>
+      </div>
+
+      <div class="research-card">
+        <h3>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+          4. 鼠尾草绿匹配高亮与防抖
+        </h3>
+        <p>已输入的前缀部分采用 Fluo 标志性 Sage Green（<code>#57C98D</code>）醒目高亮，后缀部分平滑跟随；输入停止 250ms 后才触发远端联想，避免请求风暴。</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 原型机展示区：三屏并列展示全场景 -->
+  <div class="prototypes-wrap">
+
+    <!-- 设备 1：实机可交互 (钟文泽大V视角) -->
+    <div class="device-column">
+      <div class="device-label">
+        <span class="dot" style="background: #57C98D;"></span>
+        场景 A：个人大V直达 (可输入打字 / 点击 ↖ 上屏)
+      </div>
+
+      <div class="device-shell" id="interactiveDevice">
+        <!-- 鸿蒙状态栏 -->
+        <div class="status-bar">
+          <span>09:41</span>
+          <div class="status-icons">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9 0 2.12.74 4.07 1.97 5.61L4.35 19.4c-.39.39-.39 1.02 0 1.41.39.39 1.02.39 1.41 0l1.9-1.9C9.28 19.57 10.59 20 12 20c4.97 0 9-4.03 9-9s-4.03-9-9-9z"/></svg>
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+            <span>98%</span>
+          </div>
+        </div>
+
+        <!-- 顶部搜索栏 -->
+        <div class="search-nav-bar">
+          <button class="back-btn" onclick="showToast('点击返回发现页')">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+
+          <div class="search-input-box focused" id="searchBoxWrap">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="11" cy="11" r="8"></circle>
+              <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input-field" id="searchInput" value="钟文泽" placeholder="搜索微博、话题、用户" oninput="onSearchInput(this.value)">
+            <button class="clear-btn" id="clearBtn" onclick="clearSearch()" title="清除">✕</button>
+          </div>
+
+          <button class="search-action-btn" onclick="executeSearch(document.getElementById('searchInput').value)">搜索</button>
+        </div>
+
+        <!-- 建议/主体内容流 -->
+        <div class="page-body" id="pageBody">
+          <!-- 动态填充 -->
+        </div>
+
+        <!-- 轻量提示条 -->
+        <div class="toast-tip" id="toastTip">已将词条填入搜索框</div>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+
+    <!-- 设备 2：品牌官方蓝V与热搜舆情 (鸿蒙智行视角) -->
+    <div class="device-column">
+      <div class="device-label">
+        <span class="dot" style="background: #2A82E4;"></span>
+        场景 B：官方蓝V直达与热搜话题 (输入「鸿蒙」)
+      </div>
+
+      <div class="device-shell" style="pointer-events: none;">
+        <div class="status-bar">
+          <span>09:41</span>
+          <div class="status-icons">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+            <span>98%</span>
+          </div>
+        </div>
+
+        <div class="search-nav-bar">
+          <button class="back-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <div class="search-input-box focused">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input-field" value="鸿蒙" readonly>
+            <button class="clear-btn">✕</button>
+          </div>
+          <button class="search-action-btn">搜索</button>
+        </div>
+
+        <div class="page-body">
+          <div class="suggestions-container">
+            <!-- 鸿蒙智行 蓝V卡片 -->
+            <div class="user-direct-card">
+              <div class="user-avatar-wrap">
+                <div class="user-avatar" style="background: #1C2B22; color: #57C98D; font-size: 13px;">HIMA</div>
+                <div class="v-badge blue" title="企业蓝V">V</div>
+              </div>
+              <div class="user-info">
+                <div class="user-name-row">
+                  <span class="user-name"><span class="highlight">鸿蒙</span>智行</span>
+                  <span class="user-badge-tag" style="color: #2A82E4; background: rgba(42, 130, 228, 0.15);">官方微博</span>
+                </div>
+                <div class="user-desc">鸿蒙智能汽车技术生态联盟官方微博</div>
+                <div class="user-meta">128.4万粉丝 · 528条微博</div>
+              </div>
+              <button class="user-action-btn" style="color: #2A82E4; border-color: rgba(42, 130, 228, 0.35); background: rgba(42, 130, 228, 0.12);">主页</button>
+            </div>
+
+            <!-- 词条列表 -->
+            <div class="suggestions-list-card">
+              <div class="suggestion-row">
+                <div class="suggest-icon topic">#</div>
+                <div class="suggest-content">
+                  <span class="suggest-text"><span class="highlight">鸿蒙</span>智行回应刹车踏板断裂传闻#</span>
+                  <span class="suggest-tag topic-tag">话题</span>
+                </div>
+                <button class="append-btn">↖</button>
+              </div>
+
+              <div class="suggestion-row">
+                <div class="suggest-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
+                <div class="suggest-content">
+                  <span class="suggest-text"><span class="highlight">鸿蒙</span>7.0 首发机型名单</span>
+                  <span class="suggest-tag hot-tag">热</span>
+                </div>
+                <button class="append-btn">↖</button>
+              </div>
+
+              <div class="suggestion-row">
+                <div class="suggest-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
+                <div class="suggest-content">
+                  <span class="suggest-text"><span class="highlight">鸿蒙</span>系统 Next 微信更新日志</span>
+                  <span class="suggest-tag new-tag">新</span>
+                </div>
+                <button class="append-btn">↖</button>
+              </div>
+
+              <div class="suggestion-row">
+                <div class="suggest-icon topic">#</div>
+                <div class="suggest-content">
+                  <span class="suggest-text"><span class="highlight">鸿蒙</span>生态设备突破10亿台#</span>
+                  <span class="suggest-tag topic-tag">话题</span>
+                </div>
+                <button class="append-btn">↖</button>
+              </div>
+
+              <div class="suggestion-row">
+                <div class="suggest-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>
+                <div class="suggest-content">
+                  <span class="suggest-text"><span class="highlight">鸿蒙</span>智行享界S9试驾体验</span>
+                </div>
+                <button class="append-btn">↖</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+
+    <!-- 设备 3：空输入态 (历史记录与热搜榜视角) -->
+    <div class="device-column">
+      <div class="device-label">
+        <span class="dot" style="background: #F58220;"></span>
+        场景 C：初始空状态 (历史搜索 + 实时热搜榜)
+      </div>
+
+      <div class="device-shell" style="pointer-events: none;">
+        <div class="status-bar">
+          <span>09:41</span>
+          <div class="status-icons">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 4C7.31 4 3.07 5.9 0 8.98L12 21 24 8.98C20.93 5.9 16.69 4 12 4z"/></svg>
+            <span>98%</span>
+          </div>
+        </div>
+
+        <div class="search-nav-bar">
+          <button class="back-btn">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+          <div class="search-input-box focused">
+            <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+              <circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" class="search-input-field" placeholder="搜索微博、话题、用户" readonly>
+          </div>
+          <button class="search-action-btn">取消</button>
+        </div>
+
+        <div class="page-body">
+          <div class="empty-state-wrap">
+            <div>
+              <div class="section-header">
+                <span class="section-title">搜索历史</span>
+                <button class="trash-btn">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                </button>
+              </div>
+              <div class="chips-flow">
+                <div class="chip-item">iPhone 18 Pro</div>
+                <div class="chip-item">鸿蒙7.0</div>
+                <div class="chip-item">钟文泽梅兰芳故居</div>
+                <div class="chip-item">折叠屏体验</div>
+                <div class="chip-item">小米澎程</div>
+              </div>
+            </div>
+
+            <div>
+              <div class="section-header">
+                <span class="section-title">微博实时热搜榜</span>
+              </div>
+              <div class="hot-list-compact">
+                <div class="hot-item-row">
+                  <span class="hot-rank rank-1">1</span>
+                  <span class="hot-word">神舟二十号载人飞船发射圆满成功</span>
+                  <span class="hot-heat">482.1万</span>
+                </div>
+                <div class="hot-item-row">
+                  <span class="hot-rank rank-2">2</span>
+                  <span class="hot-word">鸿蒙系统 Next 生态升级最新进展</span>
+                  <span class="hot-heat">395.4万</span>
+                </div>
+                <div class="hot-item-row">
+                  <span class="hot-rank rank-3">3</span>
+                  <span class="hot-word">钟文泽上手评测三折叠新机</span>
+                  <span class="hot-heat">312.0万</span>
+                </div>
+                <div class="hot-item-row">
+                  <span class="hot-rank">4</span>
+                  <span class="hot-word">冷空气南下多地断崖式降温</span>
+                  <span class="hot-heat">240.8万</span>
+                </div>
+                <div class="hot-item-row">
+                  <span class="hot-rank">5</span>
+                  <span class="hot-word">2026 诺贝尔文学奖揭晓</span>
+                  <span class="hot-heat">198.5万</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <script>
+    const datasets = {
+      zhong: {
+        query: '钟文泽',
+        user: {
+          name: '钟文泽',
+          badge: '数码博主',
+          vType: 'gold',
+          avatarText: '泽',
+          avatarBg: 'linear-gradient(135deg, #3A694E, #1E3B2C)',
+          desc: '保持好奇心 · 微博2019十大影响力数码大V',
+          meta: '343.7万粉丝 · 3.3万条微博'
+        },
+        suggestions: [
+          { text: '钟文泽三星三折叠体验', isTopic: false, tag: '热', tagType: 'hot' },
+          { text: '钟文泽回应被指双标#', isTopic: true, tag: '话题', tagType: 'topic' },
+          { text: '钟文泽上手华为新三折叠', isTopic: false, tag: '新', tagType: 'new' },
+          { text: '钟文泽评测iPhone 18 Pro', isTopic: false, tag: null },
+          { text: '钟文泽谈iPhoneDuo折痕#', isTopic: true, tag: '话题', tagType: 'topic' },
+          { text: '钟文泽聊普通人如何做自媒体', isTopic: false, tag: null },
+          { text: '钟文泽AppleWatchSeries12开箱', isTopic: false, tag: null },
+          { text: '钟文泽小泽吃饭联播', isTopic: false, tag: null }
+        ]
+      },
+      xiaomi: {
+        query: '小米',
+        user: {
+          name: '小米手机',
+          badge: '官方微博',
+          vType: 'blue',
+          avatarText: 'MI',
+          avatarBg: '#E06B22',
+          desc: '小米手机官方微博。为发烧而生！',
+          meta: '2860万粉丝 · 6.5万条微博'
+        },
+        suggestions: [
+          { text: '小米澎程订单量突破10万台', isTopic: false, tag: '爆', tagType: 'hot' },
+          { text: '小米18 Fold 展开厚度评测', isTopic: false, tag: '新', tagType: 'new' },
+          { text: '小米高管实测高速爆胎#', isTopic: true, tag: '话题', tagType: 'topic' },
+          { text: '小米澎程N90Max开一晚空调耗电7%#', isTopic: true, tag: '话题', tagType: 'topic' },
+          { text: '小米澎湃OS 3.0 流畅度对比', isTopic: false, tag: null },
+          { text: '小米SU7Ultra赛道纽北成绩', isTopic: false, tag: '热', tagType: 'hot' }
+        ]
+      },
+      empty: {
+        query: '',
+        history: ['iPhone 18 Pro', '鸿蒙7.0', '钟文泽梅兰芳故居', '折叠屏', '华为三折叠'],
+        hotList: [
+          { rank: 1, word: '神舟二十号载人飞船发射圆满成功', heat: '482.1万' },
+          { rank: 2, word: '鸿蒙系统 Next 生态升级最新进展', heat: '395.4万' },
+          { rank: 3, word: '钟文泽上手评测三折叠新机', heat: '312.0万' },
+          { rank: 4, word: '冷空气南下多地断崖式降温', heat: '240.8万' },
+          { rank: 5, word: '2026 诺贝尔文学奖揭晓', heat: '198.5万' }
+        ]
+      }
+    };
+
+    let currentPreset = 'zhong';
+
+    function setPreset(name) {
+      currentPreset = name;
+      document.querySelectorAll('.controls-row .btn').forEach(b => {
+        if (b.id !== 'themeToggleBtn') b.classList.remove('active');
+      });
+
+      const btnMap = {
+        zhong: 'btnPresetZhong',
+        xiaomi: 'btnPresetXiaomi',
+        empty: 'btnPresetEmpty'
+      };
+      const activeBtn = document.getElementById(btnMap[name]);
+      if (activeBtn) activeBtn.classList.add('active');
+
+      const data = datasets[name];
+      const input = document.getElementById('searchInput');
+      input.value = data.query;
+      renderPage(data.query);
+    }
+
+    function onSearchInput(val) {
+      const trimmed = val.trim();
+      if (trimmed.length === 0) {
+        renderEmptyState();
+        return;
+      }
+
+      let matchedData = null;
+      if (trimmed.includes('钟') || trimmed.includes('泽')) matchedData = datasets.zhong;
+      else if (trimmed.includes('米')) matchedData = datasets.xiaomi;
+
+      renderSuggestions(trimmed, matchedData);
+    }
+
+    function clearSearch() {
+      const input = document.getElementById('searchInput');
+      input.value = '';
+      input.focus();
+      setPreset('empty');
+      showToast('已清空搜索内容');
+    }
+
+    function appendQuery(text) {
+      const clean = text.replace(/#/g, '');
+      const input = document.getElementById('searchInput');
+      input.value = clean;
+      input.focus();
+      onSearchInput(clean);
+      showToast('已填入「' + clean + '」，可继续编辑');
+    }
+
+    function executeSearch(query) {
+      const q = query.trim();
+      if (!q) {
+        showToast('请输入搜索词');
+        return;
+      }
+      showToast('正在前往「' + q + '」搜索结果页…');
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastTip');
+      toast.innerText = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 1800);
+    }
+
+    function renderPage(query) {
+      if (!query || query.trim().length === 0) {
+        renderEmptyState();
+      } else {
+        const data = datasets[currentPreset] || datasets.zhong;
+        renderSuggestions(query, data);
+      }
+    }
+
+    function renderEmptyState() {
+      const data = datasets.empty;
+      const body = document.getElementById('pageBody');
+      let html = `
+        <div class="empty-state-wrap">
+          <div>
+            <div class="section-header">
+              <span class="section-title">搜索历史</span>
+              <button class="trash-btn" onclick="clearHistory()" title="清空历史">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+              </button>
+            </div>
+            <div class="chips-flow" id="historyChips">
+              ${data.history.map(item => `<div class="chip-item" onclick="appendQuery('${item}')">${item}</div>`).join('')}
+            </div>
+          </div>
+
+          <div>
+            <div class="section-header">
+              <span class="section-title">微博实时热搜榜</span>
+            </div>
+            <div class="hot-list-compact">
+              ${data.hotList.map(item => `
+                <div class="hot-item-row" onclick="appendQuery('${item.word}')">
+                  <span class="hot-rank rank-${item.rank}">${item.rank}</span>
+                  <span class="hot-word">${item.word}</span>
+                  <span class="hot-heat">${item.heat}</span>
+                </div>
+              `).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+      body.innerHTML = html;
+    }
+
+    function clearHistory() {
+      const chips = document.getElementById('historyChips');
+      if (chips) chips.innerHTML = '<span style="font-size:12px; color:var(--text-tertiary);">暂无搜索历史</span>';
+      showToast('历史记录已清除');
+    }
+
+    function renderSuggestions(query, matched) {
+      const body = document.getElementById('pageBody');
+      const user = matched ? matched.user : null;
+      const suggestions = matched ? matched.suggestions : [
+        { text: query + ' 评测体验', isTopic: false, tag: '热', tagType: 'hot' },
+        { text: query + ' 官方最新回应#', isTopic: true, tag: '话题', tagType: 'topic' },
+        { text: query + ' 参数对比与价格', isTopic: false, tag: null },
+        { text: query + ' 深度解析报告', isTopic: false, tag: null }
+      ];
+
+      function highlightText(text, q) {
+        if (!q) return text;
+        const index = text.indexOf(q);
+        if (index === -1) return text;
+        return text.substring(0, index) +
+          `<span class="highlight">${q}</span>` +
+          text.substring(index + q.length);
+      }
+
+      let userCardHtml = '';
+      if (user) {
+        userCardHtml = `
+          <div class="user-direct-card" onclick="showToast('进入 @${user.name} 个人主页')">
+            <div class="user-avatar-wrap">
+              <div class="user-avatar" style="background:${user.avatarBg};">
+                ${user.avatarText}
+              </div>
+              <div class="v-badge ${user.vType}" title="${user.vType === 'gold' ? '微博大V认证' : '官方认证'}">V</div>
+            </div>
+            <div class="user-info">
+              <div class="user-name-row">
+                <span class="user-name">${highlightText(user.name, query)}</span>
+                <span class="user-badge-tag">${user.badge}</span>
+              </div>
+              <div class="user-desc">${user.desc}</div>
+              <div class="user-meta">${user.meta}</div>
+            </div>
+            <button class="user-action-btn" onclick="event.stopPropagation(); showToast('进入 @${user.name} 个人主页')">主页</button>
+          </div>
+        `;
+      }
+
+      let rowsHtml = suggestions.map(s => {
+        let tagHtml = '';
+        if (s.tag) {
+          tagHtml = `<span class="suggest-tag ${s.tagType}-tag">${s.tag}</span>`;
+        }
+
+        let iconHtml = s.isTopic ?
+          `<div class="suggest-icon topic">#</div>` :
+          `<div class="suggest-icon"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg></div>`;
+
+        return `
+          <div class="suggestion-row" onclick="executeSearch('${s.text.replace(/#/g, '')}')">
+            ${iconHtml}
+            <div class="suggest-content">
+              <span class="suggest-text">${highlightText(s.text, query)}</span>
+              ${tagHtml}
+            </div>
+            <button class="append-btn" title="填入搜索框" onclick="event.stopPropagation(); appendQuery('${s.text}')">↖</button>
+          </div>
+        `;
+      }).join('');
+
+      body.innerHTML = `
+        <div class="suggestions-container">
+          ${userCardHtml}
+          <div class="suggestions-list-card">
+            ${rowsHtml}
+          </div>
+        </div>
+      `;
+    }
+
+    function toggleTheme() {
+      const body = document.body;
+      const current = body.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      body.setAttribute('data-theme', next);
+    }
+
+    setPreset('zhong');
+  </script>
+</body>
+</html>

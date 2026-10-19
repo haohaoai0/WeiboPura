@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Fluo 信息流折叠屏大屏横竖屏排版横评对比</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --bg: #0B0F0D;
+      --bg-card: #151C18;
+      --text-p: #EEF3EF;
+      --text-s: #8C9991;
+      --border: rgba(255,255,255,0.08);
+      --font-cn: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-cn);
+      background: var(--bg);
+      color: var(--text-p);
+      padding: 30px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      width: 100%;
+      max-width: 1560px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(78,170,120,0.15);
+      border: 1px solid rgba(78,170,120,0.3);
+      color: var(--brand);
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 800;
+      margin-bottom: 8px;
+    }
+    p.sub {
+      color: var(--text-s);
+      font-size: 14px;
+    }
+
+    .compare-grid {
+      width: 100%;
+      max-width: 1560px;
+      display: grid;
+      grid-template-columns: 1fr 1.15fr 1.45fr;
+      gap: 20px;
+      margin-bottom: 28px;
+    }
+
+    .column-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .col-header {
+      padding: 14px 18px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .col-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .col-tag {
+      font-size: 11px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 4px;
+    }
+    .tag-danger { background: rgba(239,68,68,0.2); color: #F87171; border: 1px solid rgba(239,68,68,0.4); }
+    .tag-brand { background: rgba(78,170,120,0.2); color: var(--brand); border: 1px solid rgba(78,170,120,0.4); }
+    .tag-blue { background: rgba(59,130,246,0.2); color: #60A5FA; border: 1px solid rgba(59,130,246,0.4); }
+
+    .preview-box {
+      flex: 1;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #0F1411;
+      min-height: 380px;
+      justify-content: center;
+    }
+
+    .mock-shell {
+      border: 2px solid #2B3530;
+      border-radius: 16px;
+      overflow: hidden;
+      background: #141B17;
+      width: 100%;
+      height: 340px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.4);
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    .mock-topbar {
+      height: 28px;
+      background: #18221D;
+      display: flex;
+      align-items: center;
+      padding: 0 10px;
+      font-size: 9px;
+      font-weight: bold;
+      color: var(--text-s);
+      border-bottom: 1px solid var(--border);
+      gap: 10px;
+    }
+
+    .col-desc-box {
+      padding: 14px 18px;
+      background: rgba(0,0,0,0.2);
+      border-top: 1px solid var(--border);
+      font-size: 12.5px;
+      line-height: 1.5;
+      color: var(--text-s);
+    }
+    .col-desc-box strong { color: var(--text-p); }
+
+    /* 规则矩阵 */
+    .matrix-card {
+      width: 100%;
+      max-width: 1560px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px 26px;
+    }
+    .matrix-card h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--brand);
+      margin-bottom: 14px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 10px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-s); font-weight: 600; background: rgba(255,255,255,0.02); }
+    td strong { color: var(--brand); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">Fluo Architecture · Feed Adaptation Design</div>
+    <h1>信息流折叠大屏（横/竖屏）自适应排版全景方案横评</h1>
+    <p class="sub">现网单列空洞缺陷诊断 vs 方案 1 大屏竖屏双列瀑布流 vs 方案 1 大屏横屏双列舒展大画报</p>
+  </div>
+
+  <div class="compare-grid">
+    
+    <!-- 现网缺陷态 -->
+    <div class="column-box">
+      <div class="col-header">
+        <div class="col-title" style="color:#F87171;">⚠️ 现网横屏单列 (当前线上)</div>
+        <span class="col-tag tag-danger">空间浪费 45%+</span>
+      </div>
+      <div class="preview-box">
+        <div class="mock-shell">
+          <div class="mock-topbar">
+            <span>推荐</span>
+            <span style="color:#666;">关注</span>
+          </div>
+          <div style="flex:1; display:flex; justify-content:center; align-items:center; background:#0B0F0D; padding:10px;">
+            <!-- 居中 640vp 卡片，左右两块巨大的黑色留白 -->
+            <div style="width:55%; height:90%; background:#1A231F; border:2px dashed #EF4444; border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+              <div style="font-size:9px; font-weight:bold; color:#FFF;">钟文泽</div>
+              <div style="font-size:8px; color:#888;">打卡梅兰芳故居...</div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:3px; height:80px; width:120px; background:#222; border-radius:4px;">
+                <div style="background:#444;"></div><div style="background:#555;"></div><div style="background:#666;"></div>
+              </div>
+            </div>
+          </div>
+          <div style="position:absolute; bottom:6px; left:10px; right:10px; background:rgba(239,68,68,0.25); border:1px solid rgba(239,68,68,0.5); border-radius:4px; padding:3px 6px; font-size:9px; color:#FCA5A5; text-align:center;">
+            ✕ 两侧各留 250vp 黑色空洞，形同手机小窗生硬投屏
+          </div>
+        </div>
+      </div>
+      <div class="col-desc-box">
+        <strong>缺陷原因</strong>：<br>
+        1. <code>WeiboHomeTab</code> 强行使用单列 <code>List</code>。<br>
+        2. 卡片强行约束 <code>maxWidth: 640vp</code>。<br>
+        3. 横屏（1140vp+）两侧浪费了 500vp 的大屏显示面积！
+      </div>
+    </div>
+
+    <!-- 方案 1：大屏竖屏双列瀑布流 -->
+    <div class="column-box" style="border-color: rgba(78,170,120,0.35);">
+      <div class="col-header">
+        <div class="col-title" style="color:var(--brand);">✨ 方案 1：大屏竖屏双列瀑布流</div>
+        <span class="col-tag tag-brand">推荐方案</span>
+      </div>
+      <div class="preview-box">
+        <div class="mock-shell">
+          <div class="mock-topbar">
+            <span style="color:var(--brand);">推荐</span>
+            <span>关注</span>
+            <span>同城</span>
+          </div>
+          <div style="flex:1; padding:8px; display:grid; grid-template-columns:1fr 1fr; gap:8px; background:#0B0F0D;">
+            <!-- 左卡片 -->
+            <div style="background:#151C18; border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:8px; display:flex; flex-direction:column; gap:5px;">
+              <div style="font-size:9.5px; font-weight:bold;">钟文泽</div>
+              <div style="font-size:8px; color:#AAA;">梅兰芳故居红墙金杏</div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:2px; height:60px;">
+                <div style="background:#534338; border-radius:2px;"></div>
+                <div style="background:#7B644E; border-radius:2px;"></div>
+                <div style="background:#465747; border-radius:2px;"></div>
+              </div>
+              <div style="font-size:7.5px; color:#666; margin-top:2px;">🔄 1208  💬 492  ♡ 5.8k</div>
+            </div>
+            <!-- 右卡片 -->
+            <div style="background:#151C18; border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:8px; display:flex; flex-direction:column; gap:5px;">
+              <div style="font-size:9.5px; font-weight:bold;">爱嘞亲亲</div>
+              <div style="font-size:8px; color:#AAA;">美国女孩耍起来 #霉霉#</div>
+              <!-- 方案 A 3:4 竖卡 -->
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:2px; height:64px;">
+                <div style="background:#FFF; color:#111; font-size:5px; padding:2px; border-radius:2px; overflow:hidden;">如一日舆论..</div>
+                <div style="background:#FFF; color:#111; font-size:5px; padding:2px; border-radius:2px; overflow:hidden;">10-02上海..</div>
+                <div style="background:#FFF; color:#111; font-size:5px; padding:2px; border-radius:2px; overflow:hidden;">你清醒点..</div>
+              </div>
+              <div style="font-size:7.5px; color:#666; margin-top:2px;">🔄 64  💬 6  ♡ 154</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-desc-box">
+        <strong>竖屏核心策略</strong>：<br>
+        1. <strong>2 列自适应瀑布流 (~360vp/列)</strong>：天然契合 8:7 近正方大屏。<br>
+        2. <strong>信息密度翻倍</strong>：单屏展示 4~6 条资讯，消除单列臃肿。<br>
+        3. <strong>卡片内图文融合</strong>：彻底释放配图空间。
+      </div>
+    </div>
+
+    <!-- 方案 1：大屏横屏双列大画报 -->
+    <div class="column-box" style="border-color: rgba(59,130,246,0.35);">
+      <div class="col-header">
+        <div class="col-title" style="color:#60A5FA;">💻 方案 1：大屏横屏双列舒展大画报</div>
+        <span class="col-tag tag-blue">宽屏极致沉浸</span>
+      </div>
+      <div class="preview-box">
+        <div class="mock-shell">
+          <div class="mock-topbar">
+            <span style="color:var(--brand);">推荐</span>
+            <span>关注</span>
+            <span>同城</span>
+          </div>
+          <div style="flex:1; padding:8px 12px; display:grid; grid-template-columns:1fr 1fr; gap:12px; background:#0B0F0D;">
+            <!-- 左卡片（宽幅 520vp） -->
+            <div style="background:#151C18; border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:10px; font-weight:bold;">钟文泽</span>
+                <span style="font-size:8px; color:var(--brand);">已关注</span>
+              </div>
+              <div style="font-size:8.5px; color:#CCC;">梅兰芳故居红墙金杏，随手一拍都是故事感。</div>
+              <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:3px; height:85px;">
+                <div style="background:#534338; border-radius:4px;"></div>
+                <div style="background:#7B644E; border-radius:4px;"></div>
+                <div style="background:#465747; border-radius:4px;"></div>
+              </div>
+              <div style="font-size:8px; color:#777;">🔄 1208  💬 492  ♡ 5.8k</div>
+            </div>
+            <!-- 右卡片（宽幅 520vp） -->
+            <div style="background:#151C18; border:1px solid rgba(255,255,255,0.08); border-radius:10px; padding:10px; display:flex; flex-direction:column; gap:6px;">
+              <div style="display:flex; justify-content:space-between; align-items:center;">
+                <span style="font-size:10px; font-weight:bold;">数码闲聊站</span>
+                <span style="font-size:8px; color:var(--brand);">已关注</span>
+              </div>
+              <div style="font-size:8.5px; color:#CCC;">折叠屏次世代大画幅预览与多栏系统演进...</div>
+              <div style="height:85px; background:linear-gradient(135deg,#1E293B,#0F172A); border-radius:4px; display:flex; align-items:center; justify-content:center; color:#94A3B8; font-size:9px;">
+                16:9 舒展大画幅
+              </div>
+              <div style="font-size:8px; color:#777;">🔄 340  💬 812  ♡ 3.1k</div>
+            </div>
+          </div>
+        </div>
+      </div>
+      <div class="col-desc-box">
+        <strong>横屏核心策略</strong>：<br>
+        1. <strong>2 列宽卡片流 (~530vp/列)</strong>：行宽与眼动阅读舒适度最佳。<br>
+        2. <strong>空间利用率达 96%</strong>：彻底消除 500vp 无效黑边。<br>
+        3. <strong>兼顾图文与视频</strong>：大图与 9 宫格完全舒展，不压缩。
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 规格矩阵 -->
+  <div class="matrix-card">
+    <h3>📋 Fluo 信息流折叠屏与全形态端侧自适应规格表</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>布局维度</th>
+          <th>外屏 / 直板机模式 (sm, &lt;600vp)</th>
+          <th>折叠大屏竖屏模式 (md, 600~840vp)</th>
+          <th>折叠大屏横屏模式 (lg, &gt;840vp)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>推荐列数</strong></td>
+          <td>单列 (1 Column)</td>
+          <td><strong>双列瀑布流 (2 Columns)</strong></td>
+          <td><strong>双列舒展大画报流 (2 Wide Columns)</strong></td>
+        </tr>
+        <tr>
+          <td><strong>单卡片宽度</strong></td>
+          <td>屏幕宽 - 24vp (约 350~370vp)</td>
+          <td>约 355~380vp (随屏幕动态均分)</td>
+          <td>约 510~550vp (居中微留 24vp 安全边距)</td>
+        </tr>
+        <tr>
+          <td><strong>单屏信息吞吐量</strong></td>
+          <td>1.5 ~ 2 条微博</td>
+          <td><strong>4 ~ 6 条微博 (效率提升 150%)</strong></td>
+          <td><strong>4 ~ 6 条高规格大图文微博</strong></td>
+        </tr>
+        <tr>
+          <td><strong>3 张长截图排版</strong></td>
+          <td>方案 A：3 列 3:4 竖卡，顶部对齐</td>
+          <td>方案 A：3 列 3:4 竖卡，高度 180~210vp</td>
+          <td>方案 A：3 列 3:4 竖卡，高度 220~250vp</td>
+        </tr>
+        <tr>
+          <td><strong>单张大图 / 视频</strong></td>
+          <td>16:9 / 4:3 自适应高</td>
+          <td>卡片内通栏展示，最大高 220vp</td>
+          <td>卡片内大画幅展示，最大高 280vp</td>
+        </tr>
+        <tr>
+          <td><strong>底部悬浮 Dock</strong></td>
+          <td>4 槽位原生 HDS 胶囊居中</td>
+          <td>4 槽位原生 HDS 胶囊居中 (限宽 500vp)</td>
+          <td>4 槽位原生 HDS 胶囊居中 (限宽 540vp)</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>

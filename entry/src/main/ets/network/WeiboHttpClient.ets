@@ -1,5 +1,6 @@
 import { rcp } from '@kit.RemoteCommunicationKit';
 import { BusinessError } from '@kit.BasicServicesKit';
+import { WeiboAuthManager } from '../service/WeiboAuthManager';
 
 const WEIBO_REFERER: string = 'https://m.weibo.cn/';
 const WEIBO_USER_AGENT: string =
@@ -10,7 +11,15 @@ const WEIBO_DESKTOP_USER_AGENT: string =
 const MIN_REQUEST_INTERVAL_MS: number = 800;
 const MOBILE_PRECONNECT_COOLDOWN_MS: number = 180000;
 
-/** A small isolated client so Weibo requests never inherit Tieba cookies. */
+interface WeiboWriteConfigData {
+  st?: string;
+  login?: boolean;
+}
+interface WeiboWriteConfig {
+  data?: WeiboWriteConfigData;
+}
+
+/** A lightweight client for Weibo network communication. */
 export class WeiboHttpClient {
   private static session: rcp.Session | null = null;
   private static lastRequestAt: number = 0;
@@ -33,8 +42,12 @@ export class WeiboHttpClient {
     return WeiboHttpClient.session;
   }
 
-  static async get(url: string, cookie: string): Promise<string> {
-    return WeiboHttpClient.request(url, WeiboHttpClient.buildMobileHeaders(cookie));
+  static async get(url: string, cookie: string, referer?: string): Promise<string> {
+    const headers: Record<string, string> = WeiboHttpClient.buildMobileHeaders(cookie);
+    if (referer !== undefined && referer.length > 0) {
+      headers['Referer'] = referer;
+    }
+    return WeiboHttpClient.request(url, headers);
   }
 
   /** Desktop APIs can read public data anonymously or the account's own feed with its Cookie. */
@@ -61,15 +74,40 @@ export class WeiboHttpClient {
    * Write requests are deliberately explicit: callers create the form only
    * after a direct user gesture, and must pass the user-provided Cookie.
    */
-  static async postForm(url: string, cookie: string, form: rcp.Form): Promise<string> {
+  static async postForm(url: string, cookie: string, form: rcp.Form | rcp.MultipartForm): Promise<string> {
+    const auth: WeiboAuthManager = WeiboAuthManager.getInstance();
+    const revision: number = auth.getSessionRevision();
+    auth.assertSession(revision);
+    if (cookie !== auth.getCookie()) { throw new Error('账号会话已变更，请重新操作'); }
     try {
+      let writeToken: string = '';
+      const isDesktop: boolean = url.startsWith('https://weibo.com/');
+      if (!isDesktop) {
+        const rawConfig: string = await WeiboHttpClient.get('https://m.weibo.cn/api/config', cookie);
+        const config: WeiboWriteConfig = JSON.parse(rawConfig) as WeiboWriteConfig;
+        if (config.data?.login === false || !config.data?.st) {
+          throw new WeiboRequestError(401, '登录已失效，请重新登录后操作');
+        }
+        writeToken = config.data.st;
+        form.fields['st'] = writeToken;
+        const keys: string[] = form.keys ?? Object.keys(form.fields);
+        if (!keys.includes('st')) { form.keys = keys.concat(['st']); }
+      }
       await WeiboHttpClient.waitForRequestSlot();
+      auth.assertSession(revision);
       const request: rcp.Request = new rcp.Request(url, 'POST');
-      request.headers = WeiboHttpClient.buildMobileHeaders(cookie);
+      request.headers = isDesktop ? WeiboHttpClient.buildDesktopHeaders(cookie) : WeiboHttpClient.buildMobileHeaders(cookie);
+      if (writeToken.length > 0) { request.headers['X-XSRF-TOKEN'] = writeToken; }
       request.content = form;
+      if (form instanceof rcp.MultipartForm) {
+        request.configuration = { transfer: { timeout: { connectMs: 15000, transferMs: 120000 } } };
+      }
       const response: rcp.Response = await WeiboHttpClient.getSession().fetch(request);
+      auth.assertSession(revision);
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return await response.toString() ?? '';
+        const body: string = await response.toString() ?? '';
+        auth.assertSession(revision);
+        return body;
       }
       throw new WeiboRequestError(response.statusCode, WeiboHttpClient.messageForStatus(response.statusCode));
     } catch (error) {
@@ -82,13 +120,19 @@ export class WeiboHttpClient {
   }
 
   private static async request(url: string, headers: Record<string, string>): Promise<string> {
+    const auth: WeiboAuthManager = WeiboAuthManager.getInstance();
+    const revision: number = auth.getSessionRevision();
     try {
       await WeiboHttpClient.waitForRequestSlot();
+      auth.assertSession(revision);
       const request: rcp.Request = new rcp.Request(url, 'GET');
       request.headers = headers;
       const response = await WeiboHttpClient.getSession().fetch(request);
+      auth.assertSession(revision);
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        return await response.toString() ?? '';
+        const body: string = await response.toString() ?? '';
+        auth.assertSession(revision);
+        return body;
       }
       throw new WeiboRequestError(response.statusCode, WeiboHttpClient.messageForStatus(response.statusCode));
     } catch (error) {

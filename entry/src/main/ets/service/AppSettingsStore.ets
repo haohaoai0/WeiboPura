@@ -2,7 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { CacheManager } from '../cache/CacheManager';
 import { refreshAppAccentMaterials } from '../common/Theme';
 
-export const DEFAULT_APP_ACCENT: string = '#E6162D';
+export const DEFAULT_APP_ACCENT: string = '#4EAA78';
 export const DEFAULT_APP_LANGUAGE: string = 'zh-cn';
 export const DEFAULT_HOME_TAB_MATERIAL_LEVEL: number = 10;
 export const APP_LANGUAGE_ZH_CN: string = 'zh-cn';
@@ -15,7 +15,7 @@ const HOME_TAB_MATERIAL_LEVEL_KEY: string = 'weibo_home_tab_material_level';
 /**
  * The small set of app-wide preferences that are not tied to a Weibo account.
  * AppStorage makes changes visible immediately, while CacheManager restores
- * them on the next launch without sharing Tieba account data.
+ * them on the next launch.
  */
 export class AppSettingsStore {
   private static instance: AppSettingsStore | null = null;
@@ -33,7 +33,9 @@ export class AppSettingsStore {
     const savedAccent: string | undefined = await cache.get(ACCENT_KEY);
     const savedLanguage: string | undefined = await cache.get(LANGUAGE_KEY);
     const savedHomeTabMaterialLevel: string | undefined = await cache.get(HOME_TAB_MATERIAL_LEVEL_KEY);
-    AppStorage.setOrCreate<string>('appAccentColor', this.isAccent(savedAccent) ? savedAccent : DEFAULT_APP_ACCENT);
+    const effectiveAccent: string = (savedAccent && savedAccent !== '#E6162D' && this.isAccent(savedAccent))
+      ? savedAccent : DEFAULT_APP_ACCENT;
+    AppStorage.setOrCreate<string>('appAccentColor', effectiveAccent);
     AppStorage.setOrCreate<number>('appAccentTick', AppStorage.get<number>('appAccentTick') ?? 0);
     AppStorage.setOrCreate<string>('appLanguage', this.isLanguage(savedLanguage) ? savedLanguage : DEFAULT_APP_LANGUAGE);
     AppStorage.setOrCreate<number>('homeTabMaterialLevel',
@@ -85,7 +87,7 @@ export class AppSettingsStore {
     if (value === undefined) {
       return false;
     }
-    return value === '#E6162D' || value === '#007DFF' || value === '#7856FF'
+    return value === '#4EAA78' || value === '#007DFF' || value === '#7856FF'
       || value === '#00A870' || value === '#F59E0B';
   }
 

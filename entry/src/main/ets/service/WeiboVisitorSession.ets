@@ -16,7 +16,7 @@ export class WeiboVisitorSession {
 
   update(cookie: string): void {
     const cleanCookie: string = cookie.trim();
-    if (cleanCookie.includes('SUB=') && cleanCookie.includes('XSRF-TOKEN=')) {
+    if (cleanCookie.includes('SUB=')) {
       this.cookie = cleanCookie;
     }
   }

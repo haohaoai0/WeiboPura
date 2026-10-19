@@ -70,6 +70,12 @@ function shortUrl(url: string): string {
 }
 
 /** 磁盘缓存清理用：单文件条目（名称/字节数/修改时间戳） */
+export interface ImageCacheClearResult {
+  deletedBytes: number;
+  deletedFiles: number;
+  failedFiles: number;
+}
+
 interface CacheFileEntry {
   name: string;
   size: number;
@@ -85,6 +91,7 @@ export class ImageCache {
   private static memCache: Map<string, string> = new Map();
   private static cacheDir: string | null = null;
   private static inflight: Map<string, Promise<string>> = new Map();
+  private static generation: number = 0;
 
   /**
    * 调试文件日志：写入 <cache>/img_cache/img_debug.log。
@@ -235,6 +242,7 @@ export class ImageCache {
    * 任何异常都返回原 URL，让 Image 自行尝试（不会更差）。
    */
   static async resolve(url: string): Promise<string> {
+    const generation: number = ImageCache.generation;
     if (!url || url.length === 0) return url;
     // 非 http(s):// 直接返回（file://, data:, internal: 等）
     if (!url.startsWith('http://') && !url.startsWith('https://')) {
@@ -254,7 +262,9 @@ export class ImageCache {
             try {
               const fileBuf: ArrayBuffer = new ArrayBuffer(st.size);
               fileIo.readSync(fd.fd, fileBuf);
-              if (await ImageCache.isPlaceholderImage(fileBuf)) {
+              const placeholder: boolean = await ImageCache.isPlaceholderImage(fileBuf);
+              if (generation !== ImageCache.generation) { return url; }
+              if (placeholder) {
                 ImageCache.debugLog(`cache PLACEHOLDER-by-decoder remove url=${shortUrl(url)} size=${st.size}`);
                 try {
                   fileIo.unlinkSync(filePath);
@@ -283,7 +293,8 @@ export class ImageCache {
     if (existing !== undefined) {
       return existing;
     }
-    const task: Promise<string> = ImageCache.downloadAndCache(url);
+    if (generation !== ImageCache.generation) { return url; }
+    const task: Promise<string> = ImageCache.downloadAndCache(url, generation);
     ImageCache.inflight.set(url, task);
     try {
       const result: string = await task;
@@ -292,7 +303,7 @@ export class ImageCache {
       ImageCache.debugLog(`resolve task EXCEPTION url=${shortUrl(url)} err=${JSON.stringify(e)}`);
       return url;
     } finally {
-      ImageCache.inflight.delete(url);
+      if (ImageCache.inflight.get(url) === task) { ImageCache.inflight.delete(url); }
     }
   }
 
@@ -351,7 +362,7 @@ export class ImageCache {
     return candidates;
   }
 
-  private static async downloadAndCache(url: string): Promise<string> {
+  private static async downloadAndCache(url: string, generation: number): Promise<string> {
     // 磁盘缓存统一以「原 URL」为 key 命名；镜像候选下载成功同样写入该文件，
     // 后续 getCachedPath(原 URL) 可直接命中，无需二次下载。
     const filePath: string = `${ImageCache.getCacheDir()}/${ImageCache.urlToFileName(url)}`;
@@ -362,13 +373,16 @@ export class ImageCache {
     for (const candidate of ImageCache.mirrorCandidates(url)) {
       try {
         const buf: ArrayBuffer | null = await ImageCache.downloadBuf(candidate);
+        if (generation !== ImageCache.generation) { return url; }
         if (buf === null) {
           hilog.warn(LOG_DOMAIN, TAG, 'candidate fail url=%{public}s', shortUrl(candidate));
           ImageCache.debugLog(`candidate FAIL url=${shortUrl(candidate)}`);
           continue; // 网络失败，尝试下一个镜像
         }
         // 占位图识别（含像素灰阶校验）：命中则丢弃该候选，试下一个镜像
-        if (await ImageCache.isPlaceholderImage(buf)) {
+        const placeholder: boolean = await ImageCache.isPlaceholderImage(buf);
+        if (generation !== ImageCache.generation) { return url; }
+        if (placeholder) {
           sawPlaceholder = true;
           ImageCache.debugLog(`candidate PLACEHOLDER url=${shortUrl(candidate)} bytes=${buf.byteLength}`);
           continue;
@@ -536,5 +550,45 @@ export class ImageCache {
       }
       ImageCache.debugLog(`prune done files=${entries.length} total=${total}`);
     } catch (e) { /* 清理失败不影响主流程 */ }
+  }
+
+  static getCacheSize(): string {
+    try {
+      const dir: string = ImageCache.getCacheDir();
+      const names: string[] = fileIo.listFileSync(dir);
+      let total: number = 0;
+      for (const name of names) {
+        try {
+          const st: fileIo.Stat = fileIo.statSync(`${dir}/${name}`);
+          total += st.size;
+        } catch (_e) {}
+      }
+      if (total < 1024 * 1024) {
+        return `${(total / 1024).toFixed(1)} KB`;
+      }
+      return `${(total / (1024 * 1024)).toFixed(1)} MB`;
+    } catch (_e) {
+      return '0 KB';
+    }
+  }
+
+  static clearAllCache(): ImageCacheClearResult {
+    ImageCache.generation++;
+    ImageCache.memCache.clear();
+    ImageCache.inflight.clear();
+    const result: ImageCacheClearResult = { deletedBytes: 0, deletedFiles: 0, failedFiles: 0 };
+    const dir: string = ImageCache.getCacheDir();
+    // Listing failure propagates; do not claim that an inaccessible cache is empty.
+    const names: string[] = fileIo.listFileSync(dir);
+    for (const name of names) {
+      try {
+        const path: string = `${dir}/${name}`;
+        const stat: fileIo.Stat = fileIo.statSync(path);
+        fileIo.unlinkSync(path);
+        result.deletedBytes += stat.size;
+        result.deletedFiles++;
+      } catch (_error) { result.failedFiles++; }
+    }
+    return result;
   }
 }

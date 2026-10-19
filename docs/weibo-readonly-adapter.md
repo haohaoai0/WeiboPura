@@ -6,7 +6,7 @@
 - `service/WeiboVisitorSession.ets` / `components/WeiboVisitorBootstrap.ets`：以无痕 ArkWeb 页面建立匿名访客会话，Cookie 只在进程内存中存在。
 - `network/WeiboHttpClient.ets`：独立 RCP 会话，固定微博请求头与 800ms 最小请求间隔，绝不继承贴吧 Cookie。
 - `service/WeiboService.ets`：将微博的移动端与桌面端响应映射为工程内部模型；目前覆盖推荐流、登录账号的关注动态、用户资料、用户动态、评论、热搜、搜索联想，以及用户手动触发的点赞和评论。
-- `pages/WeiboHomeTab.ets`：复用 TiebaPura 首页的帖子卡片、骨架与长列表结构，展示微博动态。
+- `pages/WeiboHomeTab.ets`：提供单列流畅卡片、骨架与长列表信息流结构，展示微博动态。
 - `pages/WeiboFeed.ets`：帖子详情、评论展开和评论发送界面。
 - `pages/WeiboHotSearch.ets` / `pages/WeiboSearch.ets`：公开热榜和关键词联想；不需要 Cookie。
 

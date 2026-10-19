@@ -97,6 +97,15 @@ export class CacheManager {
     }
   }
 
+  /** Authentication must not report success when durable storage failed. */
+  async putManyStrict(values: Record<string, string>): Promise<void> {
+    if (this.store === null) { throw new Error('登录存储未初始化，请重试'); }
+    for (const key of Object.keys(values)) {
+      await this.store.put(key, values[key]);
+    }
+    await this.store.flush();
+  }
+
   /**
    * 读取字符串
    */

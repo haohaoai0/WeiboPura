@@ -70,7 +70,7 @@
     },
     {
       "name": "weibo_privacy_title",
-      "value": "欢迎使用 WeiboPura"
+      "value": "欢迎使用 Fluo"
     },
     {
       "name": "weibo_privacy_body",
@@ -174,7 +174,7 @@
     },
     {
       "name": "weibo_about_body",
-      "value": "WeiboPura 已用微博数据层替换贴吧主界面。首页输入微博用户 ID 后，即可显示该用户的资料、动态、配图和评论。"
+      "value": "Fluo 专注于轻量、纯净、沉浸的浏览体验。首页输入微博用户 ID 后，即可显示该用户的资料、动态、配图和评论。"
     },
     {
       "name": "weibo_about_readonly",
@@ -390,15 +390,15 @@
     },
     {
       "name": "weibo_software_about_entry_description",
-      "value": "了解 WeiboPura 并支持开发者"
+      "value": "了解 Fluo 并支持开发者"
     },
     {
       "name": "weibo_software_about_title",
-      "value": "关于 WeiboPura"
+      "value": "关于 Fluo"
     },
     {
       "name": "weibo_software_about_description",
-      "value": "WeiboPura 是一款专注于轻松浏览微博内容的第三方客户端。"
+      "value": "Fluo 是一款专注于纯净、沉浸浏览体验的鸿蒙原生第三方客户端。"
     },
     {
       "name": "weibo_software_about_privacy_title",

@@ -108,6 +108,7 @@ export interface CacheKeys {
   FAVORITE_CUSTOM_FOLDER: string;
   FAVORITE_CUSTOM_MAPPING: string;
   SEARCH_HISTORY: string;
+  WEIBO_SEARCH_HISTORY: string;
   FAVORITE_SORT_MODE: string;
   FAVORITE_COLLECT_TS: string;
   FAVORITE_CUSTOM_THREAD_ORDER: string;
@@ -173,6 +174,7 @@ export const CACHE_KEY: CacheKeys = {
   FAVORITE_CUSTOM_FOLDER: 'favorite_custom_folder',
   FAVORITE_CUSTOM_MAPPING: 'favorite_custom_mapping',
   SEARCH_HISTORY: 'tieba_search_history',
+  WEIBO_SEARCH_HISTORY: 'weibo_search_history',
   FAVORITE_SORT_MODE: 'favorite_sort_mode',
   FAVORITE_COLLECT_TS: 'favorite_collect_ts',
   FAVORITE_CUSTOM_THREAD_ORDER: 'favorite_custom_thread_order',
@@ -228,11 +230,11 @@ export const CACHE_TTL: CacheTtls = {
 export const PRIVACY_POLICY_VERSION: string = '1.0.0';
 /** 隐私政策在线地址（GitHub 渲染页；与仓库 docs/PRIVACY.md 同源） */
 export const PRIVACY_POLICY_URL: string =
-  'https://github.com/a307608689-afk/TiebaPura/blob/main/docs/PRIVACY.md';
+  'https://github.com/HaiYangMa13/fluo/blob/main/docs/PRIVACY.md';
 
-// 主题色（贴吧蓝）
-export const BRAND_BLUE: string = '#E6162D';
-export const BRAND_BLUE_LIGHT: string = '#F05A6E';
+// 主题色（鼠尾草/薄荷绿调）
+export const BRAND_BLUE: string = '#4EAA78';
+export const BRAND_BLUE_LIGHT: string = '#72C29B';
 
 /**
  * HTML 实体解码
@@ -347,7 +349,7 @@ export function formatTime(input: string | number): string {
 }
 
 /**
- * Adapts Weibo's mixed `created_at` values to the same friendly format used by TiebaPura cards.
+ * Adapts Weibo's mixed `created_at` values to friendly display format.
  * Weibo may return an epoch, an English RFC-like date, or short Chinese strings such as “今天 12:34”.
  */
 export function formatWeiboTime(input: string): string {

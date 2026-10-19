@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo · 详情页评论底栏材质对齐原型 (HDS 同源设计)</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --brand-hover: #439669;
+      --brand-light: rgba(78, 170, 120, 0.12);
+      --brand-border: rgba(78, 170, 120, 0.35);
+      --bg: #F4F6F5;
+      --bg-card: #FFFFFF;
+      --bg-input: rgba(0, 0, 0, 0.04);
+      --text-primary: #191E1B;
+      --text-secondary: #616B66;
+      --text-tertiary: #9AA39E;
+      --border-subtle: rgba(0, 0, 0, 0.05);
+
+      /* 核心：HDS 原生浮动 Tab 栏标准材质 (浅色模式) */
+      --hds-dock-bg: rgba(255, 255, 255, 0.78);
+      --hds-dock-blur: blur(28px) saturate(190%);
+      --hds-dock-border: rgba(255, 255, 255, 0.70);
+      --hds-dock-shadow: 0 10px 32px rgba(18, 38, 28, 0.09), 0 2px 8px rgba(0, 0, 0, 0.03);
+      --hds-dock-inner-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.9);
+
+      --font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0E1310;
+      --bg-card: #161D19;
+      --bg-input: rgba(255, 255, 255, 0.06);
+      --text-primary: #EDF2EE;
+      --text-secondary: #8E9A93;
+      --text-tertiary: #546059;
+      --border-subtle: rgba(255, 255, 255, 0.07);
+
+      /* 核心：HDS 原生浮动 Tab 栏标准材质 (深色模式) */
+      --hds-dock-bg: rgba(24, 32, 27, 0.78);
+      --hds-dock-blur: blur(28px) saturate(190%);
+      --hds-dock-border: rgba(255, 255, 255, 0.12);
+      --hds-dock-shadow: 0 14px 38px rgba(0, 0, 0, 0.50), 0 2px 10px rgba(0, 0, 0, 0.35);
+      --hds-dock-inner-highlight: inset 0 1px 1px rgba(255, 255, 255, 0.15);
+      --brand-light: rgba(78, 170, 120, 0.18);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: #0B0E0C;
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    /* 顶部导览与对比提示 */
+    .header-panel {
+      max-width: 900px;
+      width: 100%;
+      background: #141A16;
+      border: 1px solid rgba(78, 170, 120, 0.25);
+      border-radius: 18px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      color: #EDF2EE;
+    }
+
+    .header-panel h1 {
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #4EAA78;
+      margin-bottom: 8px;
+    }
+
+    .header-panel p {
+      font-size: 13px;
+      color: #9AA39E;
+      line-height: 1.6;
+    }
+
+    .material-analysis {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .analysis-card {
+      background: #1A221D;
+      border-radius: 12px;
+      padding: 12px 16px;
+      font-size: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .analysis-card.problem {
+      border-color: rgba(239, 68, 68, 0.3);
+      background: rgba(239, 68, 68, 0.05);
+    }
+
+    .analysis-card.solution {
+      border-color: rgba(78, 170, 120, 0.4);
+      background: rgba(78, 170, 120, 0.08);
+    }
+
+    .analysis-title {
+      font-weight: 700;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .analysis-card.problem .analysis-title { color: #F87171; }
+    .analysis-card.solution .analysis-title { color: #4EAA78; }
+
+    /* 控制栏 */
+    .controls-bar {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-top: 14px;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
+
+    .control-btn {
+      background: #232C26;
+      color: #EDF2EE;
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 20px;
+      padding: 6px 14px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .control-btn:hover { background: #2D3831; border-color: #4EAA78; }
+    .control-btn.active { background: #4EAA78; color: #FFFFFF; border-color: #4EAA78; }
+
+    /* 主展示容器（真机模型） */
+    .prototype-stage {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+      justify-content: center;
+      flex-wrap: wrap;
+      width: 100%;
+      max-width: 900px;
+    }
+
+    .phone-mockup {
+      width: 390px;
+      height: 844px;
+      background: var(--bg);
+      border-radius: 48px;
+      box-shadow: 0 25px 70px rgba(0, 0, 0, 0.65), 0 0 0 12px #1E2420, 0 0 0 13px rgba(255, 255, 255, 0.1);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.3s;
+    }
+
+    /* 状态栏 */
+    .phone-status-bar {
+      height: 44px;
+      padding: 0 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      z-index: 10;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    /* 标题栏 */
+    .phone-title-bar {
+      height: 48px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      z-index: 10;
+    }
+
+    .back-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 18px;
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.04);
+      cursor: pointer;
+    }
+
+    .title-text {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    /* 微博详情主滚动内容区（真实对齐用户截图） */
+    .detail-scroll-area {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px 120px;
+      -webkit-overflow-scrolling: touch;
+    }
+
+    .detail-scroll-area::-webkit-scrollbar { display: none; }
+
+    /* 作者行 */
+    .author-section {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .author-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 22px;
+      background: #3A453F;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #FFFFFF;
+      font-weight: 700;
+      font-size: 16px;
+      overflow: hidden;
+    }
+
+    .author-avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .author-info {
+      flex: 1;
+    }
+
+    .author-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .author-meta {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    /* 微博正文 */
+    .post-body {
+      font-size: 15px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .post-tag {
+      color: var(--brand);
+      font-weight: 600;
+      margin-right: 6px;
+    }
+
+    .post-link {
+      color: var(--brand);
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+      font-weight: 500;
+    }
+
+    /* 视频展示区（复现用户截图中的奶牛动画） */
+    .video-card {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      border-radius: 20px;
+      background: #000000;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+      margin-bottom: 16px;
+    }
+
+    .video-poster-img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      opacity: 0.95;
+    }
+
+    /* 中心新版精美播放圆钮 */
+    .video-center-play {
+      width: 60px;
+      height: 60px;
+      border-radius: 30px;
+      background: rgba(0, 0, 0, 0.60);
+      border: 1.5px solid rgba(255, 255, 255, 0.45);
+      position: absolute;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+      cursor: pointer;
+      transition: transform 0.2s;
+    }
+
+    .video-center-play:active {
+      transform: scale(0.92);
+    }
+
+    .play-triangle {
+      width: 0;
+      height: 0;
+      border-top: 10px solid transparent;
+      border-bottom: 10px solid transparent;
+      border-left: 17px solid #FFFFFF;
+      margin-left: 3px;
+    }
+
+    /* 评论互动区 */
+    .comment-list-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-bottom: 12px;
+      padding-top: 6px;
+      border-top: 1px solid var(--border-subtle);
+    }
+
+    .comment-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .comment-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 16px;
+      background: #4EAA78;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .comment-text-box {
+      flex: 1;
+    }
+
+    .comment-user {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      margin-bottom: 3px;
+    }
+
+    .comment-msg {
+      font-size: 13.5px;
+      color: var(--text-primary);
+      line-height: 1.4;
+    }
+
+    /* ========================================================
+       方案 A：1:1 对齐外部 HDS 悬浮 Tab 栏（强力推荐）
+       ======================================================== */
+    .composer-scheme-a {
+      position: absolute;
+      bottom: 24px;
+      left: 16px;
+      right: 16px;
+      z-index: 30;
+      height: 58px;
+      background: var(--hds-dock-bg);
+      backdrop-filter: var(--hds-dock-blur);
+      -webkit-backdrop-filter: var(--hds-dock-blur);
+      border-radius: 36px;
+      border: 1px solid var(--hds-dock-border);
+      box-shadow: var(--hds-dock-shadow), var(--hds-dock-inner-highlight);
+      display: flex;
+      align-items: center;
+      padding: 0 8px 0 14px;
+      gap: 10px;
+      transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    .scheme-a-input {
+      flex: 1;
+      height: 38px;
+      background: var(--bg-input);
+      border-radius: 20px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+
+    .scheme-a-input:hover {
+      background: rgba(78, 170, 120, 0.08);
+      color: var(--brand);
+    }
+
+    .scheme-a-actions {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .action-btn {
+      height: 38px;
+      padding: 0 10px;
+      border-radius: 19px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .action-btn:active {
+      transform: scale(0.92);
+    }
+
+    .action-btn.liked {
+      color: #E05252;
+    }
+
+    .action-btn.favorited {
+      color: #F59E0B;
+    }
+
+    .action-btn svg {
+      width: 19px;
+      height: 19px;
+      fill: currentColor;
+    }
+
+    /* ========================================================
+       方案 B：双岛分离式超轻量胶囊（Split Islands）
+       ======================================================== */
+    .composer-scheme-b {
+      position: absolute;
+      bottom: 24px;
+      left: 16px;
+      right: 16px;
+      z-index: 30;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    .scheme-b-left-island {
+      flex: 1;
+      height: 54px;
+      background: var(--hds-dock-bg);
+      backdrop-filter: var(--hds-dock-blur);
+      -webkit-backdrop-filter: var(--hds-dock-blur);
+      border-radius: 27px;
+      border: 1px solid var(--hds-dock-border);
+      box-shadow: var(--hds-dock-shadow), var(--hds-dock-inner-highlight);
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 13.5px;
+      cursor: pointer;
+    }
+
+    .scheme-b-right-island {
+      height: 54px;
+      background: var(--hds-dock-bg);
+      backdrop-filter: var(--hds-dock-blur);
+      -webkit-backdrop-filter: var(--hds-dock-blur);
+      border-radius: 27px;
+      border: 1px solid var(--hds-dock-border);
+      box-shadow: var(--hds-dock-shadow), var(--hds-dock-inner-highlight);
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      gap: 2px;
+    }
+
+    /* ========================================================
+       方案 C：全宽沉浸式无界流光底座（Full Width Seamless Glass）
+       ======================================================== */
+    .composer-scheme-c {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 30;
+      padding: 10px 16px 28px;
+      background: var(--hds-dock-bg);
+      backdrop-filter: var(--hds-dock-blur);
+      -webkit-backdrop-filter: var(--hds-dock-blur);
+      border-top: 0.5px solid var(--hds-dock-border);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      box-shadow: 0 -8px 24px rgba(0, 0, 0, 0.04);
+      transition: all 0.3s;
+    }
+
+    .scheme-c-input {
+      flex: 1;
+      height: 42px;
+      background: var(--bg-input);
+      border-radius: 21px;
+      display: flex;
+      align-items: center;
+      padding: 0 16px;
+      gap: 8px;
+      color: var(--text-secondary);
+      font-size: 14px;
+      cursor: pointer;
+    }
+
+    /* 方案说明卡片面板 */
+    .selector-panel {
+      flex: 1;
+      min-width: 320px;
+      max-width: 440px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .option-card {
+      background: #141A16;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 16px;
+      padding: 16px 18px;
+      cursor: pointer;
+      transition: all 0.25s;
+      color: #EDF2EE;
+    }
+
+    .option-card:hover {
+      border-color: rgba(78, 170, 120, 0.4);
+      transform: translateY(-2px);
+    }
+
+    .option-card.selected {
+      border-color: #4EAA78;
+      background: #1A241F;
+      box-shadow: 0 4px 20px rgba(78, 170, 120, 0.15);
+    }
+
+    .option-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .option-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .tag-badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      border-radius: 10px;
+      background: rgba(78, 170, 120, 0.2);
+      color: #4EAA78;
+      font-weight: 600;
+    }
+
+    .option-desc {
+      font-size: 13px;
+      color: #9AA39E;
+      line-height: 1.5;
+    }
+
+    .option-tech {
+      font-size: 11.5px;
+      color: #616B66;
+      margin-top: 8px;
+      padding-top: 8px;
+      border-top: 1px solid rgba(255, 255, 255, 0.05);
+      font-family: Consolas, monospace;
+    }
+
+    /* 弹出输入模拟面板 */
+    .sheet-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(8px);
+      z-index: 100;
+      display: none;
+      align-items: flex-end;
+    }
+
+    .sheet-card {
+      width: 100%;
+      background: var(--bg-card);
+      border-radius: 28px 28px 0 0;
+      padding: 20px 18px 36px;
+      box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.2);
+    }
+
+    .sheet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 14px;
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .sheet-close {
+      cursor: pointer;
+      color: var(--text-tertiary);
+      font-size: 18px;
+    }
+
+    .sheet-textarea {
+      width: 100%;
+      height: 90px;
+      background: var(--bg-input);
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      padding: 12px;
+      font-size: 14px;
+      color: var(--text-primary);
+      outline: none;
+      resize: none;
+      font-family: inherit;
+    }
+
+    .sheet-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 14px;
+    }
+
+    .sheet-actions {
+      display: flex;
+      gap: 12px;
+      color: var(--text-secondary);
+    }
+
+    .sheet-send-btn {
+      background: var(--brand);
+      color: #fff;
+      border: none;
+      padding: 8px 18px;
+      border-radius: 18px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body data-theme="light">
+
+  <div class="header-panel">
+    <h1>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+      Fluo 详情页底栏材质全面重构 · 与外层 HDS 悬浮 Tab 1:1 对齐
+    </h1>
+    <p>
+      精准定位痛点：用户反馈详情页底部评论条<strong>“明显和外面的底部 Tab 栏不是一个材质”</strong>。
+      根本原因是外层主页采用的是 <strong>HdsTabs barFloatingStyle 悬浮大胶囊岛</strong>（左右留空 + 底部悬浮 30vp + 沉浸高光流光玻璃）；而详情页之前被写成了<strong>贴底 100% 全宽直角灰白矩形 + 0.5vp 顶部硬切线</strong>，导致质感和几何形态严重割裂。
+    </p>
+
+    <div class="material-analysis">
+      <div class="analysis-card problem">
+        <div class="analysis-title">❌ 之前详情页的问题（截图现状）</div>
+        <div>· 全宽贴底矩形，直角生硬，无悬浮呼吸感<br>· 顶部有 0.5vp 生硬灰色分割线<br>· 底色偏白灰实底，缺少 HDS 沉浸高饱和度毛玻璃感</div>
+      </div>
+      <div class="analysis-card solution">
+        <div class="analysis-title">✨ 本次方案 A 的重构标准（推荐）</div>
+        <div>· <strong>形态对齐</strong>：1:1 悬浮超椭圆大胶囊（左右 16vp，底留 24vp）<br>· <strong>材质对齐</strong>：HDS 同源 28px 超厚高斯模糊 + 饱和度 190%<br>· <strong>光影对齐</strong>：柔光内描边 + 软阴影，彻底消除生硬灰顶线</div>
+      </div>
+    </div>
+
+    <div class="controls-bar">
+      <span style="font-size:12px; color:#9AA39E;">原型实时控制：</span>
+      <button class="control-btn" id="themeToggle" onclick="toggleTheme()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 3c-4.97 0-9 4.03-9 9s4.03 9 9 9 9-4.03 9-9c0-.46-.04-.92-.1-1.36-.98 1.37-2.58 2.26-4.4 2.26-2.98 0-5.4-2.42-5.4-5.4 0-1.81.89-3.42 2.26-4.4-.44-.06-.9-.1-1.36-.1z"/></svg>
+        切换深浅色模式
+      </button>
+      <button class="control-btn active" id="tabContrastBtn" onclick="toggleOuterTabContrast()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+        对照：显示外层主页 Tab 栏形态
+      </button>
+    </div>
+  </div>
+
+  <div class="prototype-stage">
+
+    <!-- 手机模型 -->
+    <div class="phone-mockup">
+      <!-- 状态栏 -->
+      <div class="phone-status-bar">
+        <span>04:22</span>
+        <div class="status-icons">
+          <span>5G</span>
+          <span>100%</span>
+        </div>
+      </div>
+
+      <!-- 导航栏 -->
+      <div class="phone-title-bar">
+        <div class="back-btn" onclick="alert('返回上一页')">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 18l-6-6 6-6"/></svg>
+        </div>
+        <div class="title-text">微博详情</div>
+        <div style="width:36px;"></div>
+      </div>
+
+      <!-- 滚动内容区 -->
+      <div class="detail-scroll-area">
+        <!-- 作者 -->
+        <div class="author-section">
+          <div class="author-avatar">麦</div>
+          <div class="author-info">
+            <div class="author-name">麦的垛朱尼尔</div>
+            <div class="author-meta">35 分钟前 · 微博视频号</div>
+          </div>
+        </div>
+
+        <!-- 正文 -->
+        <div class="post-body">
+          <span class="post-tag">#Mood#</span>
+          <a href="javascript:void(0)" class="post-link">
+            网页链接
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 17L17 7M7 7h10v10"/></svg>
+          </a>
+        </div>
+
+        <!-- 视频区（复现用户截图） -->
+        <div class="video-card">
+          <svg width="100%" height="100%" viewBox="0 0 360 360" style="background:#2C3530;">
+            <rect width="360" height="360" fill="#E8ECE9"/>
+            <!-- 奶牛简化趣味插图 -->
+            <ellipse cx="180" cy="220" rx="110" ry="80" fill="#FFFFFF" stroke="#333" stroke-width="4"/>
+            <circle cx="120" cy="180" r="30" fill="#222"/>
+            <circle cx="230" cy="210" r="40" fill="#222"/>
+            <path d="M100 130 Q140 90 180 120 Q220 90 260 130" fill="#FFFFFF" stroke="#333" stroke-width="4"/>
+            <!-- 红色气泡 -->
+            <rect x="70" y="80" width="60" height="60" rx="14" fill="#E05252"/>
+            <text x="100" y="122" font-size="34" font-weight="bold" fill="#FFF" text-anchor="middle">?</text>
+          </svg>
+          <div class="video-center-play">
+            <div class="play-triangle"></div>
+          </div>
+        </div>
+
+        <!-- 评论列表演示 -->
+        <div class="comment-list-title">全部评论 (2)</div>
+        <div class="comment-item">
+          <div class="comment-avatar">小</div>
+          <div class="comment-text-box">
+            <div class="comment-user">小确幸晴天</div>
+            <div class="comment-msg">太有意思了哈哈哈，这个表情包太绝了！😆</div>
+          </div>
+        </div>
+        <div class="comment-item">
+          <div class="comment-avatar" style="background:#5C8494;">林</div>
+          <div class="comment-text-box">
+            <div class="comment-user">林间薄荷</div>
+            <div class="comment-msg">画风好可爱，今日份快乐源泉get~</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================
+           方案 A 容器：1:1 悬浮全功能胶囊岛
+           ======================================================== -->
+      <div class="composer-scheme-a" id="schemeA">
+        <div class="scheme-a-input" onclick="openCommentSheet()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span>说点什么...</span>
+        </div>
+        <div class="scheme-a-actions">
+          <div class="action-btn" id="likeBtnA" onclick="toggleLike(this, 'likeCountA')">
+            <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <span id="likeCountA">3</span>
+          </div>
+          <div class="action-btn" id="favBtnA" onclick="toggleFav(this, 'favCountA')">
+            <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <span id="favCountA">1</span>
+          </div>
+          <div class="action-btn" onclick="scrollToComments()">
+            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+            <span>2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================
+           方案 B 容器：双岛分离式超轻量胶囊
+           ======================================================== -->
+      <div class="composer-scheme-b" id="schemeB" style="display:none;">
+        <div class="scheme-b-left-island" onclick="openCommentSheet()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span>说点什么...</span>
+        </div>
+        <div class="scheme-b-right-island">
+          <div class="action-btn" onclick="toggleLike(this, 'likeCountB')">
+            <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <span id="likeCountB">3</span>
+          </div>
+          <div class="action-btn" onclick="toggleFav(this, 'favCountB')">
+            <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+          </div>
+          <div class="action-btn" onclick="scrollToComments()">
+            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- ========================================================
+           方案 C 容器：全宽沉浸式流光底座
+           ======================================================== -->
+      <div class="composer-scheme-c" id="schemeC" style="display:none;">
+        <div class="scheme-c-input" onclick="openCommentSheet()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+          <span>说点什么...</span>
+        </div>
+        <div class="scheme-a-actions">
+          <div class="action-btn" onclick="toggleLike(this, 'likeCountC')">
+            <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            <span id="likeCountC">3</span>
+          </div>
+          <div class="action-btn" onclick="toggleFav(this, 'favCountC')">
+            <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+            <span id="favCountC">1</span>
+          </div>
+          <div class="action-btn" onclick="scrollToComments()">
+            <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+            <span>2</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 弹出评论输入弹层 -->
+      <div class="sheet-overlay" id="commentSheet" onclick="closeCommentSheet(event)">
+        <div class="sheet-card" onclick="event.stopPropagation()">
+          <div class="sheet-header">
+            <span>写评论</span>
+            <span class="sheet-close" onclick="closeCommentSheet()">✕</span>
+          </div>
+          <textarea class="sheet-textarea" placeholder="发条友善的评论吧..." autofocus></textarea>
+          <div class="sheet-footer">
+            <div class="sheet-actions">
+              <span>🖼 配图</span>
+              <span>😀 表情</span>
+              <span>@ 提醒</span>
+            </div>
+            <button class="sheet-send-btn" onclick="sendComment()">发布</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- 方案选择面板 -->
+    <div class="selector-panel">
+      <!-- 方案 A -->
+      <div class="option-card selected" id="optCardA" onclick="selectScheme('A')">
+        <div class="option-header">
+          <div class="option-title">
+            方案 A：1:1 悬浮全功能胶囊岛
+          </div>
+          <span class="tag-badge">首选推荐</span>
+        </div>
+        <div class="option-desc">
+          <strong>形态与材质双重对齐</strong>：完全复用外部主页 HdsTabs 的悬浮大胶囊规范（`barFloatingStyle`，悬浮 24vp，左右留白 16vp，圆角 36vp）。
+          <br>去除突兀的直角贴底和硬横线，让用户从主页滑动进入详情页时，底部导航与底栏发评呈现浑然一体的视觉延续感。
+        </div>
+        <div class="option-tech">
+          ArkUI实现: Stack() + backgroundBlurStyle(COMPONENT_ULTRA_THICK) + borderRadius(Radius.full) + margin({ bottom: 24, left: 16, right: 16 })
+        </div>
+      </div>
+
+      <!-- 方案 B -->
+      <div class="option-card" id="optCardB" onclick="selectScheme('B')">
+        <div class="option-header">
+          <div class="option-title">
+            方案 B：双岛分离式超轻量胶囊
+          </div>
+          <span class="tag-badge" style="background:rgba(255,255,255,0.1);color:#9AA39E;">极简灵动</span>
+        </div>
+        <div class="option-desc">
+          <strong>双胶囊微岛形态</strong>：左侧长胶囊专注于“说点什么…”，右侧紧凑微岛收拢主贴赞、藏、评动作。
+          <br>占地面积更小，手势穿透感更强，适合追求高净度画面和灵动动效的设计追求。
+        </div>
+        <div class="option-tech">
+          ArkUI实现: Row({ space: 10 }) 内部分离为两个独立悬浮 Stack 胶囊岛
+        </div>
+      </div>
+
+      <!-- 方案 C -->
+      <div class="option-card" id="optCardC" onclick="selectScheme('C')">
+        <div class="option-header">
+          <div class="option-title">
+            方案 C：全宽沉浸式无界流光底座
+          </div>
+          <span class="tag-badge" style="background:rgba(255,255,255,0.1);color:#9AA39E;">经典全宽</span>
+        </div>
+        <div class="option-desc">
+          <strong>无缝微透吸底</strong>：保留贴底全宽布局（防遮挡），但<strong>彻底换掉原先发白发灰的死板底色</strong>。
+          <br>采用与 HDS 完全同源的 28px 超厚毛玻璃与微透柔光内描边，彻底摒弃旧版生硬顶部黑线。
+        </div>
+        <div class="option-tech">
+          ArkUI实现: width('100%') + linearGradient柔光顶边 + backgroundBlurStyle
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+  <script>
+    let currentScheme = 'A';
+    let isOuterTabContrast = false;
+
+    function selectScheme(scheme) {
+      currentScheme = scheme;
+      ['A', 'B', 'C'].forEach(s => {
+        document.getElementById(`scheme${s}`).style.display = (s === scheme) ? 'flex' : 'none';
+        document.getElementById(`optCard${s}`).classList.toggle('selected', s === scheme);
+      });
+    }
+
+    function toggleTheme() {
+      const body = document.body;
+      const current = body.getAttribute('data-theme');
+      body.setAttribute('data-theme', current === 'dark' ? 'light' : 'dark');
+    }
+
+    function toggleOuterTabContrast() {
+      const btn = document.getElementById('tabContrastBtn');
+      isOuterTabContrast = !isOuterTabContrast;
+      btn.classList.toggle('active', isOuterTabContrast);
+
+      const schemeA = document.getElementById('schemeA');
+      if (isOuterTabContrast) {
+        // 展示外层 Tab 栏对照内容
+        schemeA.innerHTML = `
+          <div style="display:flex; width:100%; justify-content:space-around; align-items:center;">
+            <div style="display:flex; flex-direction:column; align-items:center; color:#4EAA78; font-size:10px; font-weight:700; gap:2px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></svg>
+              <span>首页</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:center; color:var(--text-secondary); font-size:10px; font-weight:600; gap:2px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>
+              <span>热门</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:center; color:var(--text-secondary); font-size:10px; font-weight:600; gap:2px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/></svg>
+              <span>消息</span>
+            </div>
+            <div style="display:flex; flex-direction:column; align-items:center; color:var(--text-secondary); font-size:10px; font-weight:600; gap:2px;">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>
+              <span>我的</span>
+            </div>
+          </div>
+        `;
+      } else {
+        // 恢复方案 A 评论底栏内容
+        schemeA.innerHTML = `
+          <div class="scheme-a-input" onclick="openCommentSheet()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+            <span>说点什么...</span>
+          </div>
+          <div class="scheme-a-actions">
+            <div class="action-btn" id="likeBtnA" onclick="toggleLike(this, 'likeCountA')">
+              <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span id="likeCountA">3</span>
+            </div>
+            <div class="action-btn" id="favBtnA" onclick="toggleFav(this, 'favCountA')">
+              <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+              <span id="favCountA">1</span>
+            </div>
+            <div class="action-btn" onclick="scrollToComments()">
+              <svg viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-1.99.9-1.99 2L2 22l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm-2 12H6v-2h12v2zm0-3H6V9h12v2zm0-3H6V6h12v2z"/></svg>
+              <span>2</span>
+            </div>
+          </div>
+        `;
+      }
+    }
+
+    function toggleLike(btn, countId) {
+      btn.classList.toggle('liked');
+      const countEl = document.getElementById(countId);
+      if (countEl) {
+        let n = parseInt(countEl.textContent, 10);
+        countEl.textContent = btn.classList.contains('liked') ? n + 1 : n - 1;
+      }
+    }
+
+    function toggleFav(btn, countId) {
+      btn.classList.toggle('favorited');
+      const countEl = document.getElementById(countId);
+      if (countEl) {
+        let n = parseInt(countEl.textContent, 10);
+        countEl.textContent = btn.classList.contains('favorited') ? n + 1 : n - 1;
+      }
+    }
+
+    function openCommentSheet() {
+      document.getElementById('commentSheet').style.display = 'flex';
+    }
+
+    function closeCommentSheet() {
+      document.getElementById('commentSheet').style.display = 'none';
+    }
+
+    function sendComment() {
+      alert('已成功发送评论！');
+      closeCommentSheet();
+    }
+
+    function scrollToComments() {
+      const scrollArea = document.querySelector('.detail-scroll-area');
+      scrollArea.scrollTo({ top: 300, behavior: 'smooth' });
+    }
+  </script>
+</body>
+</html>

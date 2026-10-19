@@ -1,0 +1,1900 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo 全系原生鸿蒙界面原型 (Fluo ArkUI Prototype)</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --brand-hover: #439669;
+      --brand-light: rgba(78, 170, 120, 0.12);
+      --brand-surface: rgba(78, 170, 120, 0.08);
+      --bg: #F4F5F7;
+      --bg-card: #FFFFFF;
+      --bg-card-sub: #F7F8FA;
+      --text-primary: #18191C;
+      --text-secondary: #61666D;
+      --text-tertiary: #9499A0;
+      --divider: #ECEEF2;
+      --border-glass: rgba(0, 0, 0, 0.06);
+      --dock-bg: rgba(255, 255, 255, 0.82);
+      --dock-shadow: 0 10px 30px rgba(0, 0, 0, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+      --glass-panel: rgba(255, 255, 255, 0.88);
+      --card-radius: 16px;
+      --dock-radius: 36px;
+      --trans-spring: cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    [data-theme="dark"] {
+      --brand: #4EAA78;
+      --brand-hover: #5BBD88;
+      --brand-light: rgba(78, 170, 120, 0.18);
+      --brand-surface: rgba(78, 170, 120, 0.10);
+      --bg: #0D0E11;
+      --bg-card: #16181D;
+      --bg-card-sub: #1E2026;
+      --text-primary: #F0F2F5;
+      --text-secondary: #9FA4AE;
+      --text-tertiary: #686D76;
+      --divider: #23262D;
+      --border-glass: rgba(255, 255, 255, 0.08);
+      --dock-bg: rgba(26, 29, 36, 0.86);
+      --dock-shadow: 0 12px 36px rgba(0, 0, 0, 0.45), 0 2px 10px rgba(0, 0, 0, 0.3);
+      --glass-panel: rgba(26, 29, 36, 0.92);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "HarmonyOS Sans", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      background: #E5E7EB;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: flex-start;
+      padding: 24px 12px;
+      color: var(--text-primary);
+      transition: background 0.3s;
+    }
+
+    /* 顶部控制栏 */
+    .meta-bar {
+      width: 100%;
+      max-width: 440px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 16px;
+      padding: 0 4px;
+    }
+
+    .meta-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .meta-title .pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 2px 8px;
+      background: #4EAA78;
+      color: #FFF;
+      border-radius: 12px;
+    }
+
+    .meta-controls {
+      display: flex;
+      gap: 8px;
+    }
+
+    .ctrl-btn {
+      border: none;
+      outline: none;
+      background: #FFF;
+      color: #374151;
+      padding: 6px 12px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.06);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+    .ctrl-btn:hover {
+      background: #F3F4F6;
+    }
+
+    /* 模拟手机机身容器 */
+    .device-shell {
+      width: 100%;
+      max-width: 400px;
+      height: 844px;
+      background: var(--bg);
+      border-radius: 48px;
+      position: relative;
+      overflow: hidden;
+      box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.25), 0 0 0 10px #2D3139;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    /* 状态栏 */
+    .status-bar {
+      height: 44px;
+      padding: 0 24px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 600;
+      z-index: 50;
+      color: var(--text-primary);
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      pointer-events: none;
+    }
+
+    .camera-island {
+      width: 90px;
+      height: 22px;
+      background: #000;
+      border-radius: 20px;
+      margin: 0 auto;
+      pointer-events: auto;
+    }
+
+    /* 页面视口切换容器 */
+    .view-viewport {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    .app-screen {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      overflow-y: auto;
+      overflow-x: hidden;
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.98);
+      transition: opacity 0.28s var(--trans-spring), transform 0.28s var(--trans-spring);
+      scrollbar-width: none;
+      -ms-overflow-style: none;
+      padding-bottom: 108px;
+    }
+    .app-screen::-webkit-scrollbar {
+      display: none;
+    }
+
+    .app-screen.active {
+      opacity: 1;
+      pointer-events: auto;
+      transform: scale(1);
+    }
+
+    /* 详情页滑入层级更高 */
+    #screen-detail {
+      z-index: 40;
+      background: var(--bg);
+      transform: translateX(100%);
+      transition: transform 0.32s var(--trans-spring), opacity 0.32s;
+    }
+    #screen-detail.active {
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* SVG 矢量图标通用尺寸与颜色 */
+    .icon {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+      display: inline-block;
+      vertical-align: middle;
+      flex-shrink: 0;
+    }
+    .icon-sm { width: 15px; height: 15px; }
+    .icon-lg { width: 24px; height: 24px; }
+
+    /* 通用顶栏 Header */
+    .page-header {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      padding: 48px 16px 10px 16px;
+      background: var(--dock-bg);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-bottom: 0.5px solid var(--border-glass);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    /* 首页顶部分栏胶囊 */
+    .feed-seg-bar {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+    }
+    .seg-item {
+      font-size: 16px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 4px 6px;
+      cursor: pointer;
+      position: relative;
+      transition: color 0.2s;
+    }
+    .seg-item.active {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .seg-item.active::after {
+      content: "";
+      position: absolute;
+      bottom: -2px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 18px;
+      height: 3px;
+      background: var(--brand);
+      border-radius: 3px;
+    }
+
+    .header-action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--brand-surface);
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: transform 0.15s, background 0.2s;
+    }
+    .header-action-btn:active {
+      transform: scale(0.92);
+    }
+
+    /* 极简通栏单列信息流（Mode B） */
+    .feed-stream {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .post-card {
+      background: var(--bg-card);
+      padding: 16px 16px 12px 16px;
+      border-bottom: 8px solid var(--bg);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .post-card:active {
+      background: var(--bg-card-sub);
+    }
+
+    .post-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 10px;
+    }
+    .avatar-wrapper {
+      position: relative;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+    }
+    .avatar-img {
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      object-fit: cover;
+      background: #D1D5DB;
+    }
+    .avatar-badge {
+      position: absolute;
+      right: -2px;
+      bottom: -2px;
+      width: 16px;
+      height: 16px;
+      background: var(--brand);
+      color: #FFF;
+      border-radius: 50%;
+      border: 2px solid var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: 800;
+    }
+
+    .author-meta {
+      flex: 1;
+      min-width: 0;
+    }
+    .author-name-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .author-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .user-tag {
+      font-size: 10px;
+      font-weight: 600;
+      padding: 1px 5px;
+      border-radius: 4px;
+      background: var(--brand-light);
+      color: var(--brand);
+    }
+    .post-time-row {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    .btn-follow {
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 12px;
+      border-radius: 16px;
+      border: none;
+      background: var(--brand-light);
+      color: var(--brand);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-follow.followed {
+      background: var(--bg-card-sub);
+      color: var(--text-tertiary);
+    }
+
+    .post-text {
+      font-size: 15px;
+      line-height: 1.58;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+    .post-text .hash-tag, .post-text .mention-tag {
+      color: var(--brand);
+      font-weight: 500;
+    }
+
+    /* 多媒体网格自适应 */
+    .media-container {
+      margin-bottom: 12px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .single-photo-box {
+      width: 100%;
+      max-height: 240px;
+      border-radius: 12px;
+      overflow: hidden;
+      position: relative;
+    }
+    .single-photo-box img {
+      width: 100%;
+      height: 240px;
+      object-fit: cover;
+      display: block;
+    }
+
+    .grid-photos {
+      display: grid;
+      gap: 4px;
+    }
+    .grid-photos.grid-4 {
+      grid-template-columns: repeat(2, 1fr);
+      width: 240px;
+    }
+    .grid-photos.grid-4 img {
+      width: 100%;
+      height: 118px;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .grid-photos.grid-multi {
+      grid-template-columns: repeat(3, 1fr);
+    }
+    .grid-photos.grid-multi img {
+      width: 100%;
+      aspect-ratio: 1;
+      object-fit: cover;
+      border-radius: 8px;
+    }
+
+    .live-badge {
+      position: absolute;
+      right: 6px;
+      bottom: 6px;
+      font-size: 9px;
+      font-weight: 700;
+      color: #FFF;
+      background: rgba(0,0,0,0.65);
+      backdrop-filter: blur(4px);
+      padding: 2px 5px;
+      border-radius: 4px;
+      letter-spacing: 0.5px;
+    }
+
+    /* 转发引用卡片 */
+    .repost-card {
+      background: var(--brand-surface);
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 13px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+    }
+    .repost-author {
+      font-weight: 600;
+      color: var(--brand);
+    }
+
+    /* 帖子底部互动栏 */
+    .post-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-top: 0.5px solid var(--divider);
+      padding-top: 8px;
+      color: var(--text-secondary);
+      font-size: 12px;
+    }
+    .action-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
+      height: 32px;
+      cursor: pointer;
+      transition: color 0.15s, transform 0.15s;
+    }
+    .action-btn:active {
+      transform: scale(0.92);
+    }
+    .action-btn.liked {
+      color: var(--brand);
+    }
+    .action-btn.liked .icon {
+      fill: var(--brand);
+      animation: likeBounce 0.3s ease;
+    }
+
+    @keyframes likeBounce {
+      0% { transform: scale(1); }
+      50% { transform: scale(1.35); }
+      100% { transform: scale(1); }
+    }
+
+    /* ========================================================
+       TAB 2: 热门与发现页 (Hot Search / Discover)
+       ======================================================== */
+    .search-box-bar {
+      padding: 8px 16px 12px 16px;
+      background: var(--bg-card);
+    }
+    .search-input-mock {
+      height: 38px;
+      background: var(--bg-card-sub);
+      border-radius: 19px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 8px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      border: 0.5px solid var(--border-glass);
+    }
+
+    .hot-list-container {
+      background: var(--bg-card);
+      margin-bottom: 10px;
+    }
+    .hot-title-row {
+      padding: 14px 16px 8px 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .hot-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hot-tag-badge {
+      font-size: 10px;
+      font-weight: 600;
+      color: #FFF;
+      background: var(--brand);
+      padding: 1px 6px;
+      border-radius: 10px;
+    }
+    .hot-update-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .hot-item-row {
+      padding: 12px 16px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      border-bottom: 0.5px solid var(--divider);
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .hot-item-row:active {
+      background: var(--bg-card-sub);
+    }
+    .hot-rank {
+      font-size: 15px;
+      font-weight: 700;
+      width: 22px;
+      text-align: center;
+      color: var(--text-tertiary);
+    }
+    .hot-rank.rank-1 { color: var(--brand); font-size: 17px; }
+    .hot-rank.rank-2 { color: #F58220; font-size: 16px; }
+    .hot-rank.rank-3 { color: #EDB322; font-size: 16px; }
+
+    .hot-content {
+      flex: 1;
+      min-width: 0;
+    }
+    .hot-word-line {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .hot-word {
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .hot-type-tag {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 5px;
+      border-radius: 4px;
+      color: #FFF;
+    }
+    .hot-type-tag.hot { background: var(--brand); }
+    .hot-type-tag.new { background: #3B82F6; }
+    .hot-type-tag.boil { background: #F58220; }
+
+    .hot-heat-num {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 3px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* 热门分类 Tabs */
+    .discover-subtabs {
+      display: flex;
+      padding: 10px 16px;
+      gap: 12px;
+      background: var(--bg-card);
+      border-bottom: 0.5px solid var(--divider);
+    }
+    .discover-subtab-item {
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      padding: 4px 10px;
+      border-radius: 14px;
+      background: var(--bg-card-sub);
+      cursor: pointer;
+    }
+    .discover-subtab-item.active {
+      background: var(--brand-light);
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    /* ========================================================
+       TAB 3: 消息中心 (Messages)
+       ======================================================== */
+    .msg-quick-nav {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+      padding: 16px;
+      background: var(--bg-card);
+      border-bottom: 8px solid var(--bg);
+    }
+    .msg-nav-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 14px 6px;
+      background: var(--bg-card-sub);
+      border-radius: 14px;
+      cursor: pointer;
+      position: relative;
+    }
+    .msg-nav-icon-wrap {
+      width: 44px;
+      height: 44px;
+      border-radius: 22px;
+      background: var(--brand-light);
+      color: var(--brand);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .msg-nav-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .msg-badge-dot {
+      position: absolute;
+      top: 10px;
+      right: 22px;
+      width: 8px;
+      height: 8px;
+      border-radius: 4px;
+      background: var(--brand);
+    }
+
+    .msg-list-header {
+      padding: 12px 16px 8px 16px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      background: var(--bg-card);
+    }
+    .msg-item-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      background: var(--bg-card);
+      border-bottom: 0.5px solid var(--divider);
+      cursor: pointer;
+    }
+    .msg-item-row:active {
+      background: var(--bg-card-sub);
+    }
+    .msg-avatar {
+      width: 46px;
+      height: 46px;
+      border-radius: 23px;
+      object-fit: cover;
+      position: relative;
+    }
+    .msg-content-col {
+      flex: 1;
+      min-width: 0;
+    }
+    .msg-top-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+    .msg-sender {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .msg-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+    .msg-preview {
+      font-size: 12px;
+      color: var(--text-secondary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* ========================================================
+       TAB 4: 个人中心 (Mine / Profile)
+       ======================================================== */
+    .profile-hero-card {
+      background: linear-gradient(180deg, var(--brand-surface) 0%, var(--bg-card) 100%);
+      padding: 24px 16px 16px 16px;
+      border-bottom: 8px solid var(--bg);
+    }
+    .profile-user-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .profile-avatar-lg {
+      width: 68px;
+      height: 68px;
+      border-radius: 34px;
+      object-fit: cover;
+      border: 3px solid var(--bg-card);
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    }
+    .profile-info-block {
+      flex: 1;
+    }
+    .profile-name {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .profile-sign {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+      line-height: 1.4;
+    }
+
+    .profile-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      padding: 12px 0 6px 0;
+      border-top: 0.5px solid var(--divider);
+      text-align: center;
+    }
+    .stat-num {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .stat-lbl {
+      font-size: 11px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .profile-tabs-strip {
+      display: flex;
+      border-bottom: 0.5px solid var(--divider);
+      background: var(--bg-card);
+    }
+    .profile-tab-item {
+      flex: 1;
+      text-align: center;
+      padding: 12px 0;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      position: relative;
+    }
+    .profile-tab-item.active {
+      color: var(--brand);
+      font-weight: 700;
+    }
+    .profile-tab-item.active::after {
+      content: "";
+      position: absolute;
+      bottom: 0;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 24px;
+      height: 3px;
+      background: var(--brand);
+      border-radius: 3px;
+    }
+
+    .profile-menu-section {
+      background: var(--bg-card);
+      margin-top: 8px;
+    }
+    .menu-item-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 15px 16px;
+      border-bottom: 0.5px solid var(--divider);
+      cursor: pointer;
+    }
+    .menu-item-left {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text-primary);
+    }
+    .menu-item-icon {
+      color: var(--brand);
+    }
+    .menu-item-right {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    /* ========================================================
+       PAGE 5: 详情页与楼中楼评论 (Post Detail & Comments)
+       ======================================================== */
+    .detail-nav-bar {
+      position: sticky;
+      top: 0;
+      z-index: 35;
+      padding: 46px 16px 10px 16px;
+      background: var(--dock-bg);
+      backdrop-filter: blur(24px) saturate(180%);
+      -webkit-backdrop-filter: blur(24px) saturate(180%);
+      border-bottom: 0.5px solid var(--border-glass);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .btn-detail-back {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .detail-main-post {
+      background: var(--bg-card);
+      padding: 16px;
+      border-bottom: 8px solid var(--bg);
+    }
+    .detail-main-text {
+      font-size: 16px;
+      line-height: 1.62;
+      color: var(--text-primary);
+      margin-bottom: 14px;
+    }
+
+    .comments-header-bar {
+      background: var(--bg-card);
+      padding: 14px 16px;
+      border-bottom: 0.5px solid var(--divider);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .comments-count-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .comments-sort-pills {
+      display: flex;
+      gap: 6px;
+      background: var(--bg-card-sub);
+      padding: 2px;
+      border-radius: 12px;
+    }
+    .sort-pill {
+      font-size: 11px;
+      padding: 3px 8px;
+      border-radius: 10px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+    .sort-pill.active {
+      background: var(--brand);
+      color: #FFF;
+      font-weight: 600;
+    }
+
+    .comment-item {
+      background: var(--bg-card);
+      padding: 12px 16px;
+      border-bottom: 0.5px solid var(--divider);
+    }
+    .comment-header-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
+    .comment-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 17px;
+      object-fit: cover;
+    }
+    .comment-body {
+      flex: 1;
+      min-width: 0;
+    }
+    .comment-user-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+    .comment-date {
+      font-size: 10px;
+      color: var(--text-tertiary);
+      margin-top: 1px;
+    }
+    .comment-text-p {
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      margin: 6px 0 8px 0;
+    }
+
+    /* 楼中楼二级回复 */
+    .sub-replies-box {
+      background: var(--bg-card-sub);
+      border-radius: 8px;
+      padding: 8px 10px;
+      margin-top: 6px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .sub-reply-item {
+      font-size: 12px;
+      line-height: 1.45;
+      color: var(--text-secondary);
+    }
+    .sub-reply-user {
+      font-weight: 600;
+      color: var(--brand);
+    }
+
+    /* 详情页底部常驻吸底发评条 */
+    .detail-bottom-bar {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      padding: 10px 16px 24px 16px;
+      background: var(--dock-bg);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border-top: 0.5px solid var(--border-glass);
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      z-index: 45;
+    }
+    .detail-input-pill {
+      flex: 1;
+      height: 38px;
+      background: var(--bg-card-sub);
+      border-radius: 19px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      font-size: 13px;
+      color: var(--text-tertiary);
+      border: 0.5px solid var(--border-glass);
+      cursor: pointer;
+    }
+    .detail-action-icons {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      color: var(--text-secondary);
+    }
+
+    /* ========================================================
+       全新鸿蒙原生极简超椭圆浮动 DOCK 栏（针对用户截图痛点）
+       ======================================================== */
+    .floating-dock-wrapper {
+      position: absolute;
+      bottom: 16px;
+      left: 0;
+      right: 0;
+      display: flex;
+      justify-content: center;
+      z-index: 38;
+      pointer-events: none;
+    }
+
+    .native-dock {
+      pointer-events: auto;
+      height: 60px;
+      background: var(--dock-bg);
+      backdrop-filter: blur(28px) saturate(190%);
+      -webkit-backdrop-filter: blur(28px) saturate(190%);
+      border-radius: var(--dock-radius);
+      border: 0.5px solid var(--border-glass);
+      box-shadow: var(--dock-shadow);
+      padding: 0 10px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.3s cubic-bezier(0.32, 0.72, 0, 1);
+    }
+
+    .dock-tab {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      padding: 6px 14px;
+      border-radius: 20px;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.22s var(--trans-spring);
+      position: relative;
+    }
+    .dock-tab:active {
+      transform: scale(0.92);
+    }
+
+    .dock-tab.active {
+      color: var(--brand);
+      background: var(--brand-light);
+    }
+    .dock-tab.active .dock-icon {
+      fill: var(--brand);
+    }
+
+    .dock-icon {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+      transition: fill 0.2s, transform 0.2s;
+    }
+
+    .dock-label {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.2px;
+    }
+
+    .dock-dot-badge {
+      position: absolute;
+      top: 6px;
+      right: 18px;
+      width: 6px;
+      height: 6px;
+      border-radius: 3px;
+      background: var(--brand);
+    }
+
+    /* ========================================================
+       沉浸式评论回复浮层 (Floating Frosted Reply Card)
+       ======================================================== */
+    .immersive-composer-backdrop {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(4px);
+      z-index: 60;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.24s;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+    }
+    .immersive-composer-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .composer-card {
+      background: var(--glass-panel);
+      backdrop-filter: blur(32px) saturate(200%);
+      -webkit-backdrop-filter: blur(32px) saturate(200%);
+      border-radius: 26px 26px 0 0;
+      border-top: 0.5px solid var(--border-glass);
+      padding: 16px 16px 28px 16px;
+      transform: translateY(100%);
+      transition: transform 0.3s var(--trans-spring);
+    }
+    .immersive-composer-backdrop.active .composer-card {
+      transform: translateY(0);
+    }
+
+    .composer-title-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+    .composer-target-tag {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brand);
+      background: var(--brand-light);
+      padding: 3px 8px;
+      border-radius: 8px;
+    }
+
+    .composer-textarea {
+      width: 100%;
+      height: 88px;
+      background: var(--bg-card-sub);
+      border: 0.5px solid var(--border-glass);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      resize: none;
+      outline: none;
+    }
+
+    .composer-quick-emoji {
+      display: flex;
+      justify-content: space-between;
+      padding: 10px 4px 6px 4px;
+      font-size: 20px;
+    }
+    .composer-quick-emoji span {
+      cursor: pointer;
+      transition: transform 0.15s;
+    }
+    .composer-quick-emoji span:active {
+      transform: scale(1.3);
+    }
+
+    .composer-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 8px;
+    }
+    .composer-tools {
+      display: flex;
+      gap: 12px;
+      color: var(--text-secondary);
+    }
+    .btn-publish {
+      background: var(--brand);
+      color: #FFF;
+      border: none;
+      font-size: 13px;
+      font-weight: 600;
+      padding: 7px 18px;
+      border-radius: 18px;
+      cursor: pointer;
+    }
+
+    /* 底部手势指示条 (Gesture Home Bar) */
+    .home-indicator {
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 4px;
+      background: var(--text-tertiary);
+      border-radius: 2px;
+      opacity: 0.4;
+      pointer-events: none;
+      z-index: 55;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- 控制与说明栏 -->
+  <div class="meta-bar">
+    <div class="meta-title">
+      <span>Fluo 全系原生原型</span>
+      <span class="pill">Next-Gen ArkUI</span>
+    </div>
+    <div class="meta-controls">
+      <button class="ctrl-btn" id="btn-toggle-theme">
+        <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 3a9 9 0 109 9c0-.46-.04-.92-.1-1.36a5.389 5.389 0 01-4.4 2.26 5.403 5.403 0 01-3.14-9.8c-.44-.06-.9-.1-1.36-.1z"/></svg>
+        <span id="theme-text">深色模式</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 模拟机身 Shell -->
+  <div class="device-shell" id="app-container">
+
+    <!-- 顶部状态栏 -->
+    <div class="status-bar">
+      <span>17:48</span>
+      <div class="camera-island"></div>
+      <span style="display:flex; gap:4px; align-items:center;">5G <svg style="width:12px;height:12px;fill:currentColor" viewBox="0 0 24 24"><path d="M12 3C7.5 3 3.7 4.9 1 8l11 13 11-13c-2.7-3.1-6.5-5-11-5z"/></svg> 100%</span>
+    </div>
+
+    <!-- 视口容器 (多页面路由切换) -->
+    <div class="view-viewport">
+
+      <!-- ================= 页面 1: 首页信息流 (Home Feed - Mode B) ================= -->
+      <div class="app-screen active" id="screen-home">
+        <div class="page-header">
+          <div class="feed-seg-bar">
+            <div class="seg-item active" onclick="switchHomeSeg(this, 'recommend')">推荐</div>
+            <div class="seg-item" onclick="switchHomeSeg(this, 'following')">关注</div>
+          </div>
+          <div class="header-action-btn" onclick="openHotSearchTab()">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+          </div>
+        </div>
+
+        <div class="feed-stream">
+          <!-- 微博卡片 1 (带自适应大图) -->
+          <div class="post-card" onclick="openDetailView(1)">
+            <div class="post-header">
+              <div class="avatar-wrapper">
+                <img class="avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80">
+                <div class="avatar-badge">V</div>
+              </div>
+              <div class="author-meta">
+                <div class="author-name-row">
+                  <span class="author-name">星空摄影师阿哲</span>
+                  <span class="user-tag">摄影博主</span>
+                </div>
+                <div class="post-time-row">12分钟前 · 来自 HUAWEI Mate 60 Pro+</div>
+              </div>
+              <button class="btn-follow" onclick="event.stopPropagation(); toggleFollow(this)">+ 关注</button>
+            </div>
+            <div class="post-text">
+              川西贡嘎雪山今日迎来万里无云的绝美日落。<span class="hash-tag">#大自然奇观#</span> 晚霞把峰顶染成金红色，山脚下的冰川反射着薄荷色微光，震撼到无法言语！你们有多久没有走进荒野了？
+            </div>
+            <div class="media-container">
+              <div class="single-photo-box">
+                <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=800&auto=format&fit=crop&q=80">
+                <div class="live-badge">实况 Live</div>
+              </div>
+            </div>
+            <div class="post-action-bar">
+              <div class="action-btn" onclick="event.stopPropagation()"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span>48</span></div>
+              <div class="action-btn" onclick="event.stopPropagation(); openDetailView(1)"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg><span>128</span></div>
+              <div class="action-btn" onclick="event.stopPropagation(); toggleLike(this, 1280)"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span>1280</span></div>
+              <div class="action-btn" onclick="event.stopPropagation()"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg></div>
+            </div>
+          </div>
+
+          <!-- 微博卡片 2 (4图田字格 + 转发) -->
+          <div class="post-card" onclick="openDetailView(2)">
+            <div class="post-header">
+              <div class="avatar-wrapper">
+                <img class="avatar-img" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&auto=format&fit=crop&q=80">
+                <div class="avatar-badge">V</div>
+              </div>
+              <div class="author-meta">
+                <div class="author-name-row">
+                  <span class="author-name">科技先锋Leo</span>
+                  <span class="user-tag">数码资讯</span>
+                </div>
+                <div class="post-time-row">45分钟前 · 来自 HarmonyOS NEXT</div>
+              </div>
+              <button class="btn-follow" onclick="event.stopPropagation(); toggleFollow(this)">+ 关注</button>
+            </div>
+            <div class="post-text">
+              全新的 ArkUI 响应式布局体验非常惊艳！单列信息流与沉浸式卡片的配合恰到好处，既保留了极佳的高清大图冲击力，又拥有极致的跟手滚动流畅度。<span class="mention-tag">@HarmonyOS开发者</span>
+            </div>
+            <!-- 转发引用卡片 -->
+            <div class="repost-card">
+              <span class="repost-author">@鸿蒙极客空间：</span>
+              HarmonyOS NEXT 现已全面迈入纯血生态时代，欢迎所有开发者深度体验全新微质感设计语言与系统级动效！
+            </div>
+            <div class="media-container">
+              <div class="grid-photos grid-4">
+                <img src="https://images.unsplash.com/photo-1518770660439-4636190af475?w=400&auto=format&fit=crop&q=80">
+                <img src="https://images.unsplash.com/photo-1526374965328-7f61d4dc18c5?w=400&auto=format&fit=crop&q=80">
+                <img src="https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=400&auto=format&fit=crop&q=80">
+                <img src="https://images.unsplash.com/photo-1519389950473-47ba0277781c?w=400&auto=format&fit=crop&q=80">
+              </div>
+            </div>
+            <div class="post-action-bar">
+              <div class="action-btn"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg><span>105</span></div>
+              <div class="action-btn" onclick="openDetailView(2)"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg><span>342</span></div>
+              <div class="action-btn" onclick="toggleLike(this, 956)"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg><span>956</span></div>
+              <div class="action-btn"><svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 页面 2: 热门与发现 (Hot Search / Discover) ================= -->
+      <div class="app-screen" id="screen-hot">
+        <div class="page-header">
+          <span style="font-size:18px; font-weight:700;">热门探索</span>
+          <div class="header-action-btn">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+          </div>
+        </div>
+
+        <!-- 搜索条 -->
+        <div class="search-box-bar">
+          <div class="search-input-mock">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <span>搜索微博、话题、用户…</span>
+          </div>
+        </div>
+
+        <!-- 热搜榜单 -->
+        <div class="hot-list-container">
+          <div class="hot-title-row">
+            <div class="hot-title">
+              <svg class="icon icon-sm" style="fill:var(--brand);" viewBox="0 0 24 24"><path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/></svg>
+              <span>实时热搜榜</span>
+              <span class="hot-tag-badge">实时更新</span>
+            </div>
+            <span class="hot-update-time">刚刚更新</span>
+          </div>
+
+          <div class="hot-item-row" onclick="openDetailView(1)">
+            <span class="hot-rank rank-1">1</span>
+            <div class="hot-content">
+              <div class="hot-word-line">
+                <span class="hot-word">HarmonyOS NEXT 纯血应用全面就绪</span>
+                <span class="hot-type-tag hot">热</span>
+              </div>
+              <div class="hot-heat-num">489.2万热度</div>
+            </div>
+            <svg class="icon icon-sm" style="color:var(--text-tertiary);" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+          </div>
+
+          <div class="hot-item-row" onclick="openDetailView(2)">
+            <span class="hot-rank rank-2">2</span>
+            <div class="hot-content">
+              <div class="hot-word-line">
+                <span class="hot-word">贡嘎雪山今日晚霞绝美震撼</span>
+                <span class="hot-type-tag boil">沸</span>
+              </div>
+              <div class="hot-heat-num">356.1万热度</div>
+            </div>
+            <svg class="icon icon-sm" style="color:var(--text-tertiary);" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+          </div>
+
+          <div class="hot-item-row">
+            <span class="hot-rank rank-3">3</span>
+            <div class="hot-content">
+              <div class="hot-word-line">
+                <span class="hot-word">微质感设计语言在社交应用中的革新</span>
+                <span class="hot-type-tag new">新</span>
+              </div>
+              <div class="hot-heat-num">280.9万热度</div>
+            </div>
+            <svg class="icon icon-sm" style="color:var(--text-tertiary);" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+          </div>
+
+          <div class="hot-item-row">
+            <span class="hot-rank">4</span>
+            <div class="hot-content">
+              <div class="hot-word-line">
+                <span class="hot-word">中国天眼发现罕见快速射电暴</span>
+              </div>
+              <div class="hot-heat-num">172.5万热度</div>
+            </div>
+            <svg class="icon icon-sm" style="color:var(--text-tertiary);" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+          </div>
+
+          <div class="hot-item-row">
+            <span class="hot-rank">5</span>
+            <div class="hot-content">
+              <div class="hot-word-line">
+                <span class="hot-word">秋季露营装备清单盘点指南</span>
+              </div>
+              <div class="hot-heat-num">124.3万热度</div>
+            </div>
+            <svg class="icon icon-sm" style="color:var(--text-tertiary);" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+          </div>
+        </div>
+
+        <!-- 发现分类流子标签 -->
+        <div class="discover-subtabs">
+          <div class="discover-subtab-item active">精选</div>
+          <div class="discover-subtab-item">数码科技</div>
+          <div class="discover-subtab-item">自然风光</div>
+          <div class="discover-subtab-item">影视娱乐</div>
+        </div>
+      </div>
+
+      <!-- ================= 页面 3: 消息中心 (Messages) ================= -->
+      <div class="app-screen" id="screen-msg">
+        <div class="page-header">
+          <span style="font-size:18px; font-weight:700;">消息互动</span>
+          <div class="header-action-btn">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"/></svg>
+          </div>
+        </div>
+
+        <!-- 3 大常用互动胶囊 -->
+        <div class="msg-quick-nav">
+          <div class="msg-nav-card">
+            <div class="msg-nav-icon-wrap">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10h5v-2h-5c-4.34 0-8-3.66-8-8s3.66-8 8-8 8 3.66 8 8v1.43c0 .79-.71 1.57-1.5 1.57s-1.5-.78-1.5-1.57V12c0-2.76-2.24-5-5-5s-5 2.24-5 5 2.24 5 5 5c1.38 0 2.64-.56 3.54-1.47.65.89 1.77 1.47 2.96 1.47 1.97 0 3.5-1.6 3.5-3.57V12c0-5.52-4.48-10-10-10zm0 13c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z"/></svg>
+            </div>
+            <span class="msg-nav-label">@我的</span>
+            <div class="msg-badge-dot"></div>
+          </div>
+          <div class="msg-nav-card">
+            <div class="msg-nav-icon-wrap">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></svg>
+            </div>
+            <span class="msg-nav-label">收到的评论</span>
+          </div>
+          <div class="msg-nav-card">
+            <div class="msg-nav-icon-wrap">
+              <svg class="icon" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+            </div>
+            <span class="msg-nav-label">赞与反应</span>
+          </div>
+        </div>
+
+        <div class="msg-list-header">近期私信与互动</div>
+
+        <!-- 消息会话列表 -->
+        <div class="msg-item-row">
+          <img class="msg-avatar" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80">
+          <div class="msg-content-col">
+            <div class="msg-top-row">
+              <span class="msg-sender">星空摄影师阿哲</span>
+              <span class="msg-time">10:24</span>
+            </div>
+            <div class="msg-preview">赞了你的评论：“这张贡嘎雪山色调真的太惊艳了！”</div>
+          </div>
+        </div>
+
+        <div class="msg-item-row">
+          <img class="msg-avatar" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=100&auto=format&fit=crop&q=80">
+          <div class="msg-content-col">
+            <div class="msg-top-row">
+              <span class="msg-sender">鸿蒙极客空间</span>
+              <span class="msg-time">昨天</span>
+            </div>
+            <div class="msg-preview">已收到你的开发者反馈，全新通栏信息流将在新版本中实装！</div>
+          </div>
+        </div>
+
+        <div class="msg-item-row">
+          <img class="msg-avatar" src="https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?w=100&auto=format&fit=crop&q=80">
+          <div class="msg-content-col">
+            <div class="msg-top-row">
+              <span class="msg-sender">系统小秘书</span>
+              <span class="msg-time">星期二</span>
+            </div>
+            <div class="msg-preview">账号安全提醒：你的账号已在新设备成功登录。</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 页面 4: 个人中心 (Mine / Profile) ================= -->
+      <div class="app-screen" id="screen-mine">
+        <div class="page-header" style="background:transparent; border-bottom:none;">
+          <span style="font-size:18px; font-weight:700;">个人空间</span>
+          <div class="header-action-btn">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+          </div>
+        </div>
+
+        <div class="profile-hero-card">
+          <div class="profile-user-row">
+            <img class="profile-avatar-lg" src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=200&auto=format&fit=crop&q=80">
+            <div class="profile-info-block">
+              <div class="profile-name">
+                <span>Purist_Dev</span>
+                <span class="user-tag">PRO</span>
+              </div>
+              <div class="profile-sign">用鸿蒙原生 ArkTS 重新雕刻极致纯净体验 · 全新单列通栏流</div>
+            </div>
+          </div>
+
+          <div class="profile-stats-grid">
+            <div>
+              <div class="stat-num">128</div>
+              <div class="stat-lbl">关注</div>
+            </div>
+            <div>
+              <div class="stat-num">1.4万</div>
+              <div class="stat-lbl">粉丝</div>
+            </div>
+            <div>
+              <div class="stat-num">246</div>
+              <div class="stat-lbl">微博</div>
+            </div>
+            <div>
+              <div class="stat-num">8.9万</div>
+              <div class="stat-lbl">获赞</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="profile-tabs-strip">
+          <div class="profile-tab-item active">精选微博</div>
+          <div class="profile-tab-item">收藏动态</div>
+          <div class="profile-tab-item">点赞历史</div>
+        </div>
+
+        <div class="profile-menu-section">
+          <div class="menu-item-row">
+            <div class="menu-item-left">
+              <svg class="icon icon-sm menu-item-icon" viewBox="0 0 24 24"><path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+              <span>浏览历史</span>
+            </div>
+            <div class="menu-item-right">
+              <span>今天看过了 38 条</span>
+              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+            </div>
+          </div>
+          <div class="menu-item-row">
+            <div class="menu-item-left">
+              <svg class="icon icon-sm menu-item-icon" viewBox="0 0 24 24"><path d="M19 3H5c-1.11 0-2 .9-2 2v14c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-2 10h-4v4h-2v-4H7v-2h4V7h2v4h4v2z"/></svg>
+              <span>草稿箱</span>
+            </div>
+            <div class="menu-item-right">
+              <span>2 篇草稿</span>
+              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+            </div>
+          </div>
+          <div class="menu-item-row">
+            <div class="menu-item-left">
+              <svg class="icon icon-sm menu-item-icon" viewBox="0 0 24 24"><path d="M12 3a9 9 0 000 18c.83 0 1.5-.67 1.5-1.5 0-.39-.15-.74-.39-1.01-.23-.26-.38-.61-.38-.99 0-.83.67-1.5 1.5-1.5H16c2.76 0 5-2.24 5-5 0-4.42-4.03-8-9-8zm-5.5 9c-.83 0-1.5-.67-1.5-1.5S5.67 9 6.5 9 8 9.67 8 10.5 7.33 12 6.5 12zm3-4C8.67 8 8 7.33 8 6.5S8.67 5 9.5 5s1.5.67 1.5 1.5S10.33 8 9.5 8zm5 0c-.83 0-1.5-.67-1.5-1.5S13.67 5 14.5 5s1.5.67 1.5 1.5S15.33 8 14.5 8zm3 4c-.83 0-1.5-.67-1.5-1.5S16.67 9 17.5 9s1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/></svg>
+              <span>外观与主题色彩</span>
+            </div>
+            <div class="menu-item-right">
+              <span style="color:var(--brand);font-weight:600;">鼠尾草/薄荷绿</span>
+              <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M8.59 16.59L13.17 12 8.59 7.41 10 6l6 6-6 6-1.41-1.41z"/></svg>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ================= 页面 5: 微博正文详情页 (Post Detail View) ================= -->
+      <div class="app-screen" id="screen-detail">
+        <div class="detail-nav-bar">
+          <div class="btn-detail-back" onclick="closeDetailView()">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+            <span>返回流</span>
+          </div>
+          <span style="font-size:15px; font-weight:700;">微博正文</span>
+          <div class="header-action-btn">
+            <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92 1.61 0 2.92-1.31 2.92-2.92s-1.31-2.92-2.92-2.92z"/></svg>
+          </div>
+        </div>
+
+        <!-- 详情正文卡片 -->
+        <div class="detail-main-post">
+          <div class="post-header">
+            <div class="avatar-wrapper">
+              <img class="avatar-img" src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=100&auto=format&fit=crop&q=80">
+              <div class="avatar-badge">V</div>
+            </div>
+            <div class="author-meta">
+              <div class="author-name-row">
+                <span class="author-name">星空摄影师阿哲</span>
+                <span class="user-tag">摄影博主</span>
+              </div>
+              <div class="post-time-row">12分钟前 · 来自 HUAWEI Mate 60 Pro+</div>
+            </div>
+            <button class="btn-follow">+ 关注</button>
+          </div>
+
+          <div class="detail-main-text">
+            川西贡嘎雪山今日迎来万里无云的绝美日落。<span class="hash-tag">#大自然奇观#</span> 晚霞把峰顶染成金红色，山脚下的冰川反射着薄荷色微光，震撼到无法言语！你们有多久没有走进荒野了？每一次站在雪山脚下，都深感大自然的博大与生命的渺小。
+          </div>
+
+          <div class="media-container">
+            <div class="single-photo-box" style="max-height:280px;">
+              <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?w=1000&auto=format&fit=crop&q=80" style="height:280px;">
+              <div class="live-badge">4K 原图</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 评论列表区 -->
+        <div class="comments-header-bar">
+          <span class="comments-count-title">全部评论 (128)</span>
+          <div class="comments-sort-pills">
+            <div class="sort-pill active">按热度</div>
+            <div class="sort-pill">按时间</div>
+          </div>
+        </div>
+
+        <div class="comment-item">
+          <div class="comment-header-row">
+            <img class="comment-avatar" src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=80&auto=format&fit=crop&q=80">
+            <div class="comment-body">
+              <div style="display:flex; justify-content:space-between;">
+                <div>
+                  <div class="comment-user-name">风光记录官</div>
+                  <div class="comment-date">8分钟前 · 四川</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:3px; color:var(--text-tertiary); font-size:12px;">
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  <span>46</span>
+                </div>
+              </div>
+              <div class="comment-text-p">
+                这组机位找得太准了，前景的倒影和远处的日照金山配合得天衣无缝！
+              </div>
+              <!-- 楼中楼二级回复 -->
+              <div class="sub-replies-box">
+                <div class="sub-reply-item"><span class="sub-reply-user">星空摄影师阿哲</span> (作者)：在子梅垭口蹲守了整整两天，终于等到了这个窗口期！</div>
+                <div class="sub-reply-item"><span class="sub-reply-user">户外小白</span>：请问从新都桥过去路况怎么样呀？</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="comment-item">
+          <div class="comment-header-row">
+            <img class="comment-avatar" src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=80&auto=format&fit=crop&q=80">
+            <div class="comment-body">
+              <div style="display:flex; justify-content:space-between;">
+                <div>
+                  <div class="comment-user-name">云端漫步者</div>
+                  <div class="comment-date">10分钟前 · 广东</div>
+                </div>
+                <div style="display:flex; align-items:center; gap:3px; color:var(--text-tertiary); font-size:12px;">
+                  <svg class="icon icon-sm" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+                  <span>19</span>
+                </div>
+              </div>
+              <div class="comment-text-p">
+                手机屏幕上看都如此震撼，现场看该有多美！果断存下来做壁纸了。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 详情页底部常驻吸底发评条 -->
+        <div class="detail-bottom-bar">
+          <div class="detail-input-pill" onclick="openComposer('回复 @星空摄影师阿哲…')">
+            <svg class="icon icon-sm" style="margin-right:6px;" viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            <span>说点什么参与讨论…</span>
+          </div>
+          <div class="detail-action-icons">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 4V1L8 5l4 4V6c3.31 0 6 2.69 6 6 0 1.01-.25 1.97-.7 2.8l1.46 1.46A7.93 7.93 0 0020 12c0-4.42-3.58-8-8-8zm0 14c-3.31 0-6-2.69-6-6 0-1.01.25-1.97.7-2.8L5.24 7.74A7.93 7.93 0 004 12c0 4.42 3.58 8 8 8v3l4-4-4-4v3z"/></svg>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+          </div>
+        </div>
+      </div>
+
+    </div><!-- .view-viewport -->
+
+    <!-- ================= 全新鸿蒙原生极简超椭圆 DOCK 导航栏 ================= -->
+    <!-- 彻底清除用户截图中低质感的 emoji (🔥、✉️、👤)，采用纯矢量 SymbolGlyph 图标 -->
+    <div class="floating-dock-wrapper" id="dock-bar-wrapper">
+      <div class="native-dock">
+        <!-- Tab 1: 首页 -->
+        <div class="dock-tab active" id="tab-btn-home" onclick="switchNavTab('home')">
+          <svg class="dock-icon" viewBox="0 0 24 24">
+            <path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/>
+          </svg>
+          <span class="dock-label">首页</span>
+        </div>
+
+        <!-- Tab 2: 热门 -->
+        <div class="dock-tab" id="tab-btn-hot" onclick="switchNavTab('hot')">
+          <svg class="dock-icon" viewBox="0 0 24 24">
+            <path d="M13.5.67s.74 2.65.74 4.8c0 2.06-1.35 3.73-3.41 3.73-2.07 0-3.63-1.67-3.63-3.73l.03-.36C5.21 7.51 4 10.62 4 14c0 4.42 3.58 8 8 8s8-3.58 8-8C20 8.61 17.41 3.8 13.5.67zM11.71 19c-1.78 0-3.22-1.4-3.22-3.14 0-1.62 1.05-2.76 2.81-3.12 1.77-.36 3.6-1.21 4.62-2.58.39 1.29.59 2.65.59 4.04 0 2.65-2.15 4.8-4.8 4.8z"/>
+          </svg>
+          <span class="dock-label">热门</span>
+        </div>
+
+        <!-- Tab 3: 消息 -->
+        <div class="dock-tab" id="tab-btn-msg" onclick="switchNavTab('msg')">
+          <div class="dock-dot-badge"></div>
+          <svg class="dock-icon" viewBox="0 0 24 24">
+            <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+          </svg>
+          <span class="dock-label">消息</span>
+        </div>
+
+        <!-- Tab 4: 我的 -->
+        <div class="dock-tab" id="tab-btn-mine" onclick="switchNavTab('mine')">
+          <svg class="dock-icon" viewBox="0 0 24 24">
+            <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+          </svg>
+          <span class="dock-label">我的</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ================= 沉浸式回复浮层 (Floating Frosted Sheet) ================= -->
+    <div class="immersive-composer-backdrop" id="composer-modal" onclick="closeComposer(event)">
+      <div class="composer-card" onclick="event.stopPropagation()">
+        <div class="composer-title-row">
+          <span class="composer-target-tag" id="composer-target-text">回复 @星空摄影师阿哲</span>
+          <span style="font-size:12px; color:var(--text-tertiary); cursor:pointer;" onclick="closeComposer()">取消</span>
+        </div>
+        <textarea class="composer-textarea" id="composer-input" placeholder="输入友善的评论内容…"></textarea>
+        <!-- 9项常用快捷表情 -->
+        <div class="composer-quick-emoji">
+          <span onclick="insertEmoji('😆')">😆</span>
+          <span onclick="insertEmoji('😮')">😮</span>
+          <span onclick="insertEmoji('🥺')">🥺</span>
+          <span onclick="insertEmoji('😭')">😭</span>
+          <span onclick="insertEmoji('😋')">😋</span>
+          <span onclick="insertEmoji('😚')">😚</span>
+          <span onclick="insertEmoji('🙂')">🙂</span>
+          <span onclick="insertEmoji('🥴')">🥴</span>
+          <span onclick="insertEmoji('😍')">😍</span>
+        </div>
+        <div class="composer-toolbar">
+          <div class="composer-tools">
+            <svg class="icon" viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+            <svg class="icon" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          </div>
+          <button class="btn-publish" onclick="sendComment()">发布</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- 底部手势横条 -->
+    <div class="home-indicator"></div>
+
+  </div><!-- .device-shell -->
+
+  <script>
+    // 深浅色主题切换
+    const container = document.getElementById('app-container');
+    const themeBtn = document.getElementById('btn-toggle-theme');
+    const themeText = document.getElementById('theme-text');
+    let isDark = false;
+
+    themeBtn.addEventListener('click', () => {
+      isDark = !isDark;
+      if (isDark) {
+        document.documentElement.setAttribute('data-theme', 'dark');
+        themeText.textContent = '浅色模式';
+      } else {
+        document.documentElement.removeAttribute('data-theme');
+        themeText.textContent = '深色模式';
+      }
+    });
+
+    // 底部 Tab 导航切换
+    const screens = {
+      home: document.getElementById('screen-home'),
+      hot: document.getElementById('screen-hot'),
+      msg: document.getElementById('screen-msg'),
+      mine: document.getElementById('screen-mine')
+    };
+
+    const dockButtons = {
+      home: document.getElementById('tab-btn-home'),
+      hot: document.getElementById('tab-btn-hot'),
+      msg: document.getElementById('tab-btn-msg'),
+      mine: document.getElementById('tab-btn-mine')
+    };
+
+    const screenDetail = document.getElementById('screen-detail');
+    const dockWrapper = document.getElementById('dock-bar-wrapper');
+
+    function switchNavTab(tabKey) {
+      // 关闭可能存在的详情页
+      closeDetailView();
+
+      Object.keys(screens).forEach(key => {
+        if (key === tabKey) {
+          screens[key].classList.add('active');
+          dockButtons[key].classList.add('active');
+        } else {
+          screens[key].classList.remove('active');
+          dockButtons[key].classList.remove('active');
+        }
+      });
+    }
+
+    function openHotSearchTab() {
+      switchNavTab('hot');
+    }
+
+    // 首页顶部【推荐/关注】切换
+    function switchHomeSeg(el, mode) {
+      document.querySelectorAll('.feed-seg-bar .seg-item').forEach(item => item.classList.remove('active'));
+      el.classList.add('active');
+    }
+
+    // 详情页展开与收起
+    function openDetailView(postId) {
+      screenDetail.classList.add('active');
+      dockWrapper.style.display = 'none'; // 详情页沉浸式隐藏底部 Dock，由详情页自己的吸底发评条接管
+    }
+
+    function closeDetailView() {
+      screenDetail.classList.remove('active');
+      dockWrapper.style.display = 'flex';
+    }
+
+    // 点赞微交互
+    function toggleLike(btn, count) {
+      btn.classList.toggle('liked');
+      const span = btn.querySelector('span');
+      if (btn.classList.contains('liked')) {
+        span.textContent = count + 1;
+      } else {
+        span.textContent = count;
+      }
+    }
+
+    // 关注按钮交互
+    function toggleFollow(btn) {
+      if (btn.classList.contains('followed')) {
+        btn.classList.remove('followed');
+        btn.textContent = '+ 关注';
+      } else {
+        btn.classList.add('followed');
+        btn.textContent = '已关注';
+      }
+    }
+
+    // 沉浸式回复浮层
+    const composerModal = document.getElementById('composer-modal');
+    const composerInput = document.getElementById('composer-input');
+    const composerTargetText = document.getElementById('composer-target-text');
+
+    function openComposer(targetPlaceholder = '回复 @星空摄影师阿哲') {
+      composerTargetText.textContent = targetPlaceholder;
+      composerModal.classList.add('active');
+      setTimeout(() => composerInput.focus(), 100);
+    }
+
+    function closeComposer(e) {
+      composerModal.classList.remove('active');
+      composerInput.blur();
+    }
+
+    function insertEmoji(char) {
+      composerInput.value += char;
+      composerInput.focus();
+    }
+
+    function sendComment() {
+      if (!composerInput.value.trim()) return;
+      alert('评论已成功发布！');
+      composerInput.value = '';
+      closeComposer();
+    }
+  </script>
+</body>
+</html>

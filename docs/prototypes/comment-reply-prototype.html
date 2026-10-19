@@ -1,0 +1,886 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo - 鸿蒙原生沉浸式评论回复原型</title>
+  <style>
+    :root {
+      --bg-page: #f2f4f7;
+      --bg-card: #ffffff;
+      --text-primary: #101114;
+      --text-secondary: #64748b;
+      --text-tertiary: #94a3b8;
+      --brand-green: #97caa2;
+      --brand-green-active: #48bb78;
+      --mask-dim: rgba(0, 0, 0, 0.45);
+      --card-glass-bg: rgba(255, 255, 255, 0.88);
+      --card-glass-border: rgba(255, 255, 255, 0.65);
+      --card-shadow: 0 12px 36px rgba(0, 0, 0, 0.16);
+      --input-placeholder: #8ea0a9;
+    }
+
+    [data-theme="dark"] {
+      --bg-page: #101114;
+      --bg-card: #1b1e24;
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-tertiary: #64748b;
+      --brand-green: #72b281;
+      --brand-green-active: #38a169;
+      --mask-dim: rgba(0, 0, 0, 0.65);
+      --card-glass-bg: rgba(30, 33, 40, 0.90);
+      --card-glass-border: rgba(255, 255, 255, 0.10);
+      --card-shadow: 0 14px 40px rgba(0, 0, 0, 0.45);
+      --input-placeholder: #64748b;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      font-family: -apple-system, BlinkMacSystemFont, "HarmonyOS Sans SC", "HarmonyOS Sans", "PingFang SC", "Microsoft YaHei", sans-serif;
+    }
+
+    body {
+      background-color: #0d1117;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 20px 10px;
+      color: #e2e8f0;
+    }
+
+    .meta-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 16px;
+      font-size: 14px;
+    }
+
+    .theme-toggle-btn {
+      padding: 6px 14px;
+      border-radius: 18px;
+      background: #1e293b;
+      color: #38bdf8;
+      border: 1px solid #334155;
+      cursor: pointer;
+      font-size: 13px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .phone-container {
+      width: 384px;
+      height: 820px;
+      background: var(--bg-page);
+      border-radius: 46px;
+      border: 10px solid #27272a;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.6), inset 0 0 2px rgba(255, 255, 255, 0.2);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.3s ease;
+    }
+
+    /* 顶部状态栏 */
+    .status-bar {
+      height: 38px;
+      padding: 6px 20px 0 22px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      z-index: 10;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+    }
+
+    /* 页面背景内容（主贴 + 楼中楼列表） */
+    .page-content {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 16px 100px 16px;
+      position: relative;
+    }
+
+    .author-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .back-btn {
+      font-size: 20px;
+      font-weight: 300;
+      color: var(--text-primary);
+      cursor: pointer;
+      padding-right: 4px;
+    }
+
+    .avatar {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #a8edea 0%, #fed6e3 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      color: #334155;
+      font-size: 16px;
+    }
+
+    .author-info {
+      flex: 1;
+    }
+
+    .author-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .author-sub {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .author-more {
+      font-size: 18px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    /* 关注 / 我也发一条 双胶囊按钮 */
+    .action-capsules {
+      display: flex;
+      gap: 8px;
+      margin: 12px 0 10px 0;
+    }
+
+    .capsule-btn {
+      flex: 1;
+      height: 34px;
+      border-radius: 17px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .capsule-follow {
+      background: rgba(148, 163, 184, 0.12);
+      color: var(--text-secondary);
+    }
+
+    .capsule-post {
+      background: rgba(151, 202, 162, 0.2);
+      color: #2e7d43;
+      border: 1px solid rgba(151, 202, 162, 0.4);
+    }
+    [data-theme="dark"] .capsule-post {
+      background: rgba(114, 178, 129, 0.25);
+      color: #8edaa0;
+    }
+
+    .location-info {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-bottom: 12px;
+    }
+
+    .comments-filter-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px 0;
+      border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+      margin-bottom: 12px;
+    }
+
+    .filter-tabs {
+      display: flex;
+      gap: 14px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+
+    .filter-tab.active {
+      font-weight: 600;
+      color: var(--text-primary);
+      position: relative;
+    }
+
+    .comments-count {
+      font-size: 12px;
+      color: var(--text-tertiary);
+    }
+
+    /* 评论列表项（模拟） */
+    .comment-item {
+      display: flex;
+      gap: 10px;
+      padding: 10px 0;
+      cursor: pointer;
+    }
+
+    .comment-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      background: #cbd5e1;
+    }
+
+    .comment-main {
+      flex: 1;
+    }
+
+    .comment-user {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .comment-text {
+      font-size: 14px;
+      color: var(--text-primary);
+      margin: 4px 0 6px 0;
+      line-height: 1.4;
+    }
+
+    .comment-meta {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      display: flex;
+      gap: 12px;
+    }
+
+    /* 底层沉浸式暗蒙层 */
+    .modal-mask {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: var(--mask-dim);
+      backdrop-filter: blur(2px);
+      -webkit-backdrop-filter: blur(2px);
+      z-index: 50;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.28s cubic-bezier(0.33, 1, 0.68, 1);
+    }
+
+    .modal-mask.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    /* 核心原型：悬浮圆角回复弹窗（Floating Capsule Composer） */
+    .floating-composer-wrapper {
+      position: absolute;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 60;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      pointer-events: none;
+      transform: translateY(100%);
+      transition: transform 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .floating-composer-wrapper.open {
+      transform: translateY(0);
+      pointer-events: auto;
+    }
+
+    .floating-card-box {
+      padding: 0 12px 10px 12px; /* 左右留白，形成悬浮 */
+    }
+
+    .floating-card {
+      background: var(--card-glass-bg);
+      backdrop-filter: blur(35px) saturate(180%);
+      -webkit-backdrop-filter: blur(35px) saturate(180%);
+      border: 1px solid var(--card-glass-border);
+      border-radius: 26px; /* 鸿蒙标志性大圆角 */
+      box-shadow: var(--card-shadow);
+      padding: 14px 16px 14px 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+
+    /* 输入文本区 */
+    .composer-input-row {
+      width: 100%;
+    }
+
+    .composer-textarea {
+      width: 100%;
+      min-height: 52px;
+      max-height: 110px;
+      background: transparent;
+      border: none;
+      outline: none;
+      resize: none;
+      font-size: 15px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      user-select: text;
+    }
+
+    .composer-textarea::placeholder {
+      color: var(--input-placeholder);
+      font-size: 15px;
+    }
+
+    /* 选图预览区 */
+    .image-preview-row {
+      display: none;
+      align-items: center;
+      gap: 8px;
+      padding: 4px 0;
+    }
+    .image-preview-row.show {
+      display: flex;
+    }
+    .preview-thumb {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      object-fit: cover;
+      border: 1px solid var(--card-glass-border);
+    }
+    .preview-remove {
+      font-size: 12px;
+      color: #ef4444;
+      cursor: pointer;
+      padding: 4px 8px;
+    }
+
+    /* 中部工具栏 */
+    .composer-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 2px 0;
+    }
+
+    .tool-icons-left {
+      display: flex;
+      align-items: center;
+      gap: 18px;
+    }
+
+    .tool-icon-btn {
+      background: transparent;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+      font-size: 20px;
+      transition: transform 0.15s, color 0.15s;
+    }
+
+    .tool-icon-btn:active {
+      transform: scale(0.9);
+      color: var(--text-primary);
+    }
+
+    .tool-icon-btn.symbol-text {
+      font-size: 21px;
+      font-weight: 500;
+      line-height: 1;
+    }
+
+    /* 优雅的鼠尾草绿/薄荷绿发布胶囊按钮 */
+    .publish-pill-btn {
+      height: 32px;
+      padding: 0 16px;
+      border-radius: 16px;
+      background: var(--brand-green);
+      color: #ffffff;
+      border: none;
+      outline: none;
+      font-size: 13px;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      opacity: 0.85;
+      transition: all 0.2s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    .publish-pill-btn.active {
+      background: var(--brand-green-active);
+      opacity: 1;
+      transform: scale(1.02);
+      box-shadow: 0 3px 10px rgba(72, 187, 120, 0.35);
+    }
+
+    .publish-pill-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* 底部 9 个高频表情横向栏 */
+    .quick-emojis-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-top: 4px;
+    }
+
+    .quick-emoji-item {
+      font-size: 25px;
+      line-height: 1;
+      cursor: pointer;
+      transition: transform 0.12s cubic-bezier(0.2, 0, 0.13, 1.5);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+    }
+
+    .quick-emoji-item:active {
+      transform: scale(1.35);
+    }
+
+    /* 仿真软键盘（模拟华为/荣耀系统键盘高度与贴合） */
+    .simulated-keyboard {
+      width: 100%;
+      height: 295px;
+      background: #e1e4ea;
+      display: flex;
+      flex-direction: column;
+      padding: 6px 4px 18px 4px;
+      gap: 6px;
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+    }
+
+    [data-theme="dark"] .simulated-keyboard {
+      background: #1c1d22;
+    }
+
+    .kb-top-bar {
+      height: 32px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0 12px;
+      font-size: 13px;
+      color: #64748b;
+    }
+
+    .kb-row {
+      display: flex;
+      flex: 1;
+      gap: 5px;
+      padding: 0 4px;
+    }
+
+    .kb-key {
+      flex: 1;
+      background: #ffffff;
+      border-radius: 6px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 14px;
+      font-weight: 500;
+      color: #1e293b;
+      box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+      cursor: pointer;
+    }
+    [data-theme="dark"] .kb-key {
+      background: #2b2d35;
+      color: #f1f5f9;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .kb-key.action-key {
+      background: #cbd5e1;
+      font-size: 13px;
+    }
+    [data-theme="dark"] .kb-key.action-key {
+      background: #22242c;
+    }
+
+    .kb-key.key-wide {
+      flex: 1.4;
+    }
+
+    .kb-key-sub {
+      font-size: 9px;
+      color: #94a3b8;
+    }
+
+    /* 底部 Home 条指示器 */
+    .home-indicator {
+      width: 110px;
+      height: 4px;
+      background: #94a3b8;
+      border-radius: 2px;
+      margin: 4px auto 2px auto;
+      opacity: 0.6;
+    }
+
+    /* Toast 弹窗 */
+    .toast-msg {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(0, 0, 0, 0.85);
+      color: #fff;
+      padding: 10px 18px;
+      border-radius: 20px;
+      font-size: 13px;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.25s ease;
+      z-index: 100;
+    }
+    .toast-msg.show {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="meta-bar">
+    <span>✨ Fluo 鸿蒙沉浸式回复原型</span>
+    <button class="theme-toggle-btn" onclick="toggleTheme()">
+      <span id="theme-icon">🌙</span> <span id="theme-label">深色模式</span>
+    </button>
+  </div>
+
+  <div class="phone-container" id="phoneContainer">
+    <!-- 状态栏 -->
+    <div class="status-bar">
+      <span>03:55</span>
+      <div class="status-icons">
+        <span>📶 5G</span>
+        <span>VPN</span>
+        <span>🔋 100%</span>
+      </div>
+    </div>
+
+    <!-- 微博主页内容 -->
+    <div class="page-content">
+      <div class="author-header">
+        <div class="back-btn" onclick="showToast('返回上一页')">‹</div>
+        <div class="avatar">O</div>
+        <div class="author-info">
+          <div class="author-name">Oacar</div>
+          <div class="author-sub">
+            <span>昨天</span>
+            <span>📱 荣耀Magic8</span>
+          </div>
+        </div>
+        <div class="author-more">⋮</div>
+      </div>
+
+      <div class="action-capsules">
+        <div class="capsule-btn capsule-follow" onclick="showToast('已关注')">关注</div>
+        <div class="capsule-btn capsule-post" onclick="openComposer('发条友善的评论…')">我也发一条</div>
+      </div>
+
+      <div class="location-info">发布于湖北</div>
+
+      <div class="comments-filter-bar">
+        <div class="filter-tabs">
+          <div class="filter-tab active">默认</div>
+          <div class="filter-tab">最新</div>
+          <div class="filter-tab">热门</div>
+          <div class="filter-tab">楼主</div>
+        </div>
+        <div class="comments-count">共 13 回复</div>
+      </div>
+
+      <!-- 评论列表项（点击触发回复原型） -->
+      <div class="comment-item" onclick="openComposer('回复@Oacar')">
+        <div class="comment-avatar"></div>
+        <div class="comment-main">
+          <div class="comment-user">Oacar</div>
+          <div class="comment-text">鸿蒙NEXT沉浸式光感与圆角卡片质感确实非常舒适，大家感觉如何？</div>
+          <div class="comment-meta">
+            <span>20分钟前</span>
+            <span>回复</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="comment-item" onclick="openComposer('回复@极客先锋')">
+        <div class="comment-avatar" style="background:#fbcfe8;"></div>
+        <div class="comment-main">
+          <div class="comment-user">极客先锋</div>
+          <div class="comment-text">这种悬浮卡片在软键盘升起时自然避让，体验比以前整页被顶起好太多了。</div>
+          <div class="comment-meta">
+            <span>15分钟前</span>
+            <span>回复</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 背景暗蒙层 -->
+    <div class="modal-mask" id="modalMask" onclick="closeComposer()"></div>
+
+    <!-- 悬浮圆角回复弹窗 (Floating Card Composer) -->
+    <div class="floating-composer-wrapper" id="floatingComposer">
+      <div class="floating-card-box">
+        <div class="floating-card">
+          <!-- 文本输入区 -->
+          <div class="composer-input-row">
+            <textarea class="composer-textarea" id="composerInput" placeholder="回复@Oacar" oninput="onInputChange()"></textarea>
+          </div>
+
+          <!-- 模拟图片已选预览 -->
+          <div class="image-preview-row" id="imagePreviewRow">
+            <img class="preview-thumb" id="previewImg" src="" alt="preview">
+            <span class="preview-remove" onclick="removeImage()">移除图片</span>
+          </div>
+
+          <!-- 中部操作工具栏 -->
+          <div class="composer-toolbar">
+            <div class="tool-icons-left">
+              <button class="tool-icon-btn" title="表情面板" onclick="insertEmoji('😊')">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <circle cx="12" cy="12" r="10"></circle>
+                  <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                  <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                  <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                </svg>
+              </button>
+              <button class="tool-icon-btn" title="选择相册图片" onclick="mockPickImage()">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                  <circle cx="8.5" cy="8.5" r="1.5"></circle>
+                  <polyline points="21 15 16 10 5 21"></polyline>
+                </svg>
+              </button>
+              <button class="tool-icon-btn symbol-text" title="提及 @" onclick="insertToken('@')">@</button>
+              <button class="tool-icon-btn symbol-text" title="话题 #" onclick="insertToken('#')">#</button>
+            </div>
+
+            <!-- 鼠尾草绿发布胶囊按钮 -->
+            <button class="publish-pill-btn" id="publishBtn" onclick="submitComment()">发布</button>
+          </div>
+
+          <!-- 底部 9 个高频快捷表情 -->
+          <div class="quick-emojis-bar">
+            <span class="quick-emoji-item" onclick="insertEmoji('😆')">😆</span>
+            <span class="quick-emoji-item" onclick="insertEmoji('😮')">😮</span>
+            <span class="quick-emoji-item" onclick="insertEmoji('🥺')">🥺</span>
+            <span class="quick-emoji-item" onclick="insertEmoji('😭')">😭</span>
+            <span class="quick-emoji-item" onclick="insertEmoji('😋')">😋</span>
+            <span class="quick-emoji-item" onclick="insertEmoji('😚')">😚</span>
+            <span class="quick-emoji-item" onclick="insertEmoji('🙂')">🙂</span>
+            <span class="quick-emoji-item" onclick="insertEmoji('🥴')">🥴</span>
+            <span class="quick-emoji-item" onclick="insertEmoji('😍')">😍</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 仿真软键盘 -->
+      <div class="simulated-keyboard">
+        <div class="kb-top-bar">
+          <span>✨ 智慧输入</span>
+          <span>🎙️ ⌗ ⌵</span>
+        </div>
+        <div class="kb-row">
+          <div class="kb-key" onclick="insertToken(',')">,</div>
+          <div class="kb-key" onclick="insertToken('@#')">@#</div>
+          <div class="kb-key" onclick="typeWord('ABC')">ABC</div>
+          <div class="kb-key action-key" onclick="backspaceKey()">⌫</div>
+        </div>
+        <div class="kb-row">
+          <div class="kb-key" onclick="typeWord('GHI')">GHI</div>
+          <div class="kb-key" onclick="typeWord('JKL')">JKL</div>
+          <div class="kb-key" onclick="typeWord('MNO')">MNO</div>
+          <div class="kb-key action-key" onclick="clearInput()">重输</div>
+        </div>
+        <div class="kb-row">
+          <div class="kb-key" onclick="typeWord('PQRS')">PQRS</div>
+          <div class="kb-key" onclick="typeWord('TUV')">TUV</div>
+          <div class="kb-key" onclick="typeWord('WXYZ')">WXYZ</div>
+          <div class="kb-key action-key key-wide" style="background:var(--brand-green);color:#fff;" onclick="submitComment()">换行/发送</div>
+        </div>
+        <div class="kb-row">
+          <div class="kb-key action-key">符号</div>
+          <div class="kb-key">123</div>
+          <div class="kb-key">🎤</div>
+          <div class="kb-key action-key">中/英</div>
+        </div>
+        <div class="home-indicator"></div>
+      </div>
+    </div>
+
+    <!-- Toast 弹窗 -->
+    <div class="toast-msg" id="toastMsg">发布成功</div>
+  </div>
+
+  <script>
+    let isDark = false;
+    let hasImage = false;
+
+    function toggleTheme() {
+      isDark = !isDark;
+      document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      document.getElementById('theme-icon').textContent = isDark ? '☀️' : '🌙';
+      document.getElementById('theme-label').textContent = isDark ? '浅色模式' : '深色模式';
+    }
+
+    function openComposer(placeholder) {
+      const modalMask = document.getElementById('modalMask');
+      const floatingComposer = document.getElementById('floatingComposer');
+      const composerInput = document.getElementById('composerInput');
+
+      if (placeholder) {
+        composerInput.placeholder = placeholder;
+      }
+      modalMask.classList.add('show');
+      floatingComposer.classList.add('open');
+      setTimeout(() => {
+        composerInput.focus();
+      }, 100);
+    }
+
+    function closeComposer() {
+      const modalMask = document.getElementById('modalMask');
+      const floatingComposer = document.getElementById('floatingComposer');
+      const composerInput = document.getElementById('composerInput');
+
+      modalMask.classList.remove('show');
+      floatingComposer.classList.remove('open');
+      composerInput.blur();
+    }
+
+    function onInputChange() {
+      const input = document.getElementById('composerInput');
+      const publishBtn = document.getElementById('publishBtn');
+      const text = input.value.trim();
+
+      if (text.length > 0 || hasImage) {
+        publishBtn.classList.add('active');
+      } else {
+        publishBtn.classList.remove('active');
+      }
+    }
+
+    function insertToken(token) {
+      const input = document.getElementById('composerInput');
+      const start = input.selectionStart || input.value.length;
+      const end = input.selectionEnd || input.value.length;
+      const current = input.value;
+      input.value = current.substring(0, start) + token + current.substring(end);
+      input.selectionStart = input.selectionEnd = start + token.length;
+      input.focus();
+      onInputChange();
+    }
+
+    function insertEmoji(emoji) {
+      insertToken(emoji);
+    }
+
+    function typeWord(w) {
+      insertToken(w.toLowerCase());
+    }
+
+    function backspaceKey() {
+      const input = document.getElementById('composerInput');
+      const current = input.value;
+      if (current.length > 0) {
+        input.value = current.slice(0, -1);
+        onInputChange();
+      }
+    }
+
+    function clearInput() {
+      const input = document.getElementById('composerInput');
+      input.value = '';
+      onInputChange();
+    }
+
+    function mockPickImage() {
+      hasImage = true;
+      const previewRow = document.getElementById('imagePreviewRow');
+      const previewImg = document.getElementById('previewImg');
+      previewImg.src = 'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60" fill="%2394a3b8"><rect width="100%" height="100%" fill="%23e2e8f0"/><text x="50%" y="55%" font-size="12" text-anchor="middle" fill="%2364748b">已选图</text></svg>';
+      previewRow.classList.add('show');
+      onInputChange();
+      showToast('已添加评论配图');
+    }
+
+    function removeImage() {
+      hasImage = false;
+      document.getElementById('imagePreviewRow').classList.remove('show');
+      onInputChange();
+    }
+
+    function submitComment() {
+      const input = document.getElementById('composerInput');
+      const text = input.value.trim();
+      if (!text && !hasImage) {
+        showToast('请输入回复内容');
+        return;
+      }
+      showToast('评论发布成功');
+      input.value = '';
+      removeImage();
+      onInputChange();
+      setTimeout(() => {
+        closeComposer();
+      }, 400);
+    }
+
+    function showToast(msg) {
+      const toast = document.getElementById('toastMsg');
+      toast.textContent = msg;
+      toast.classList.add('show');
+      setTimeout(() => {
+        toast.classList.remove('show');
+      }, 1500);
+    }
+
+    // 默认展示打开态以供检视
+    window.onload = () => {
+      openComposer('回复@Oacar');
+    };
+  </script>
+</body>
+</html>

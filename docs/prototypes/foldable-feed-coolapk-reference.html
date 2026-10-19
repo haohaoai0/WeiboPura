@@ -1,0 +1,1165 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Fluo · 酷安风格折叠大屏横竖屏信息流自适应原型</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --brand-hover: #419366;
+      --brand-light: rgba(78, 170, 120, 0.12);
+      --brand-border: rgba(78, 170, 120, 0.28);
+      --brand-glow: rgba(78, 170, 120, 0.35);
+
+      /* 浅色基准 (与参考截图一致) */
+      --bg: #F4F6F4;
+      --bg-card: #FFFFFF;
+      --bg-card-subtle: #F8FAF8;
+      --bg-comment-box: #F2F5F3;
+      --bg-dock: rgba(255, 255, 255, 0.94);
+      --bg-tag: rgba(0, 0, 0, 0.05);
+
+      --text-primary: #1A211D;
+      --text-secondary: #5F6D65;
+      --text-tertiary: #929F98;
+      --border-subtle: rgba(0, 0, 0, 0.06);
+      --border-card: rgba(0, 0, 0, 0.08);
+
+      --radius-sm: 8px;
+      --radius-md: 14px;
+      --radius-lg: 20px;
+      --radius-full: 9999px;
+
+      --font-cn: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0C100E;
+      --bg-card: #151C18;
+      --bg-card-subtle: #1C2420;
+      --bg-comment-box: #1A231F;
+      --bg-dock: rgba(22, 30, 26, 0.92);
+      --bg-tag: rgba(255, 255, 255, 0.08);
+
+      --text-primary: #EEF3EF;
+      --text-secondary: #8C9991;
+      --text-tertiary: #5A6660;
+      --border-subtle: rgba(255, 255, 255, 0.07);
+      --border-card: rgba(255, 255, 255, 0.09);
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-cn);
+      background: var(--bg);
+      color: var(--text-primary);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 20px 16px 80px;
+      overflow-x: hidden;
+      transition: background 0.2s, color 0.2s;
+    }
+
+    /* 顶部控制面板 */
+    .control-header {
+      width: 100%;
+      max-width: 1440px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg);
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      box-shadow: 0 12px 36px rgba(0,0,0,0.12);
+    }
+
+    .header-title-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+
+    .brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--brand-light);
+      border: 1px solid var(--brand-border);
+      padding: 5px 12px;
+      border-radius: var(--radius-full);
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--brand);
+    }
+    .brand-badge::before {
+      content: '';
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--brand);
+      box-shadow: 0 0 10px var(--brand-glow);
+    }
+
+    .title-group h1 {
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .title-desc {
+      font-size: 13px;
+      color: var(--text-secondary);
+      margin-top: 4px;
+    }
+
+    .control-groups {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 16px;
+    }
+
+    .control-box {
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      padding: 12px 14px;
+    }
+    .control-label {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-tertiary);
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .seg-btn-group {
+      display: flex;
+      background: var(--bg-card);
+      border-radius: var(--radius-sm);
+      padding: 3px;
+      gap: 2px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .seg-btn {
+      flex: 1;
+      border: none;
+      background: transparent;
+      color: var(--text-secondary);
+      padding: 8px 10px;
+      border-radius: 6px;
+      font-size: 12.5px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.18s cubic-bezier(0.2, 0, 0, 1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+    .seg-btn.active {
+      background: var(--brand);
+      color: #FFFFFF;
+      box-shadow: 0 2px 8px var(--brand-glow);
+    }
+    .seg-btn:hover:not(.active) {
+      color: var(--text-primary);
+      background: rgba(0, 0, 0, 0.03);
+    }
+
+    /* 方案横幅 */
+    .scheme-banner {
+      width: 100%;
+      max-width: 1440px;
+      background: linear-gradient(135deg, rgba(78, 170, 120, 0.12) 0%, rgba(78, 170, 120, 0.03) 100%);
+      border: 1px solid var(--brand-border);
+      border-radius: var(--radius-md);
+      padding: 14px 20px;
+      margin-bottom: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .scheme-badge {
+      background: var(--brand);
+      color: #FFFFFF;
+      font-size: 12px;
+      font-weight: 700;
+      padding: 4px 10px;
+      border-radius: var(--radius-full);
+      white-space: nowrap;
+    }
+    .scheme-text {
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: var(--text-primary);
+    }
+
+    /* 设备框体 */
+    .stage-canvas {
+      width: 100%;
+      display: flex;
+      justify-content: center;
+    }
+
+    .device-shell {
+      background: #000000;
+      border: 4px solid #2B3530;
+      border-radius: 36px;
+      box-shadow: 0 30px 80px rgba(0,0,0,0.35), 0 0 0 1px rgba(0,0,0,0.1);
+      overflow: hidden;
+      position: relative;
+      transition: all 0.32s cubic-bezier(0.2, 0, 0, 1);
+      display: flex;
+      flex-direction: column;
+    }
+
+    .device-shell.mode-portrait {
+      width: 780px;
+      height: 940px;
+    }
+    .device-shell.mode-landscape {
+      width: 1180px;
+      height: 760px;
+    }
+    .device-shell.mode-phone {
+      width: 390px;
+      height: 840px;
+    }
+
+    .device-meta-bar {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(8px);
+      padding: 3px 12px;
+      border-radius: var(--radius-full);
+      font-size: 10.5px;
+      font-weight: 600;
+      color: #EEE;
+      border: 1px solid rgba(255,255,255,0.15);
+      pointer-events: none;
+    }
+
+    .screen-viewport {
+      flex: 1;
+      background: var(--bg);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      position: relative;
+    }
+
+    /* 状态栏 */
+    .harmony-status-bar {
+      height: 38px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      z-index: 20;
+    }
+
+    /* ===================================================
+       参考图核心结构：顶部频道滑动栏 + 右侧搜索胶囊
+       =================================================== */
+    .cool-top-bar {
+      height: 52px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border-subtle);
+      z-index: 10;
+    }
+
+    .channels-scroll-box {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      gap: 18px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      white-space: nowrap;
+      padding-right: 10px;
+    }
+    .channels-scroll-box::-webkit-scrollbar { display: none; }
+
+    .channel-tab-item {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      position: relative;
+      padding: 6px 2px;
+      transition: color 0.18s;
+      flex-shrink: 0;
+    }
+    .channel-tab-item.active {
+      color: var(--text-primary);
+      font-size: 17px;
+      font-weight: 800;
+    }
+    .channel-tab-item.active::after {
+      content: '';
+      position: absolute;
+      bottom: 0px;
+      left: 10%;
+      right: 10%;
+      height: 3px;
+      border-radius: 2px;
+      background: var(--brand);
+    }
+
+    .top-actions-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex-shrink: 0;
+    }
+
+    /* 头像小圆标 */
+    .top-avatar-dot {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: #4A90E2;
+      color: white;
+      font-size: 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: bold;
+      border: 1px solid var(--border-subtle);
+    }
+
+    /* 搜索胶囊按钮 (参考图中: Q 搜索) */
+    .search-capsule-btn {
+      height: 32px;
+      padding: 0 14px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-full);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      cursor: pointer;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+      transition: all 0.18s;
+    }
+    .search-capsule-btn:hover {
+      border-color: var(--brand);
+      color: var(--brand);
+    }
+
+    .icon-action-btn {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+    }
+
+    /* ===================================================
+       信息流容器：支持宽屏通栏卡片 / 居中宽卡
+       =================================================== */
+    .feed-scroll-viewport {
+      flex: 1;
+      overflow-y: auto;
+      padding: 12px 16px 90px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* 卡片宽度驱动 */
+    .layout-full-width .cool-post-card {
+      width: 100%;
+    }
+    .layout-centered-bounded .cool-post-card {
+      width: 100%;
+      max-width: 860px; /* 大屏横屏黄金眼动宽度 */
+    }
+    .layout-dual-col {
+      width: 100%;
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 12px;
+      align-items: start;
+    }
+
+    /* 核心微博卡片 (完整还原参考截图视觉) */
+    .cool-post-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-md);
+      padding: 14px 18px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.03);
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      position: relative;
+    }
+
+    /* 博主头部 */
+    .card-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .card-author-bundle {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .author-avatar {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, #FF6B6B, #4ECDC4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: bold;
+      font-size: 15px;
+    }
+    .author-meta h4 {
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .author-meta p {
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      margin-top: 1px;
+    }
+    .device-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 2px;
+    }
+    .card-more-chevron {
+      color: var(--text-tertiary);
+      cursor: pointer;
+    }
+
+    /* 正文 */
+    .card-text-body {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+    .topic-hashtag {
+      color: var(--brand);
+      font-weight: 600;
+      margin-right: 6px;
+    }
+
+    /* 单张 GIF / 媒体缩略图 (如参考图中的左侧独立配图) */
+    .media-single-thumb {
+      width: 120px;
+      height: 120px;
+      border-radius: var(--radius-sm);
+      background: #2D3748;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #CBD5E0;
+      font-size: 11px;
+      font-weight: bold;
+    }
+    .thumb-badge {
+      position: absolute;
+      right: 5px;
+      bottom: 5px;
+      background: rgba(0, 0, 0, 0.7);
+      color: #FFFFFF;
+      font-size: 9px;
+      font-weight: 800;
+      padding: 1px 4px;
+      border-radius: 3px;
+    }
+
+    /* 话题标签胶囊 (参考图: 酷安夜话) */
+    .topic-capsule-tag {
+      align-self: flex-start;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      background: var(--bg-card-subtle);
+      border: 1px solid var(--border-subtle);
+      padding: 4px 10px;
+      border-radius: 6px;
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      cursor: pointer;
+    }
+
+    /* ===================================================
+       【核心杀手锏】：精选神评微卡片 (Hot Comment Box)
+       完全复刻参考图的 [35赞] + 评论内容 + 查看更多
+       =================================================== */
+    .hot-comment-preview-box {
+      background: var(--bg-comment-box);
+      border-radius: var(--radius-sm);
+      padding: 10px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      border: 1px solid var(--border-subtle);
+    }
+    .hot-comment-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .comment-vote-badge {
+      background: var(--brand);
+      color: #FFFFFF;
+      font-size: 10.5px;
+      font-weight: 800;
+      padding: 1.5px 6px;
+      border-radius: 4px;
+      letter-spacing: 0.02em;
+    }
+    .comment-preview-content {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--text-primary);
+    }
+    .comment-author-name {
+      font-weight: 700;
+      color: var(--text-secondary);
+      margin-right: 4px;
+    }
+    .comment-read-more {
+      color: var(--brand);
+      font-weight: 600;
+      cursor: pointer;
+      margin-left: 4px;
+    }
+
+    /* 底部三联操作条 (点赞、评论、转发) */
+    .card-footer-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      border-top: 1px solid var(--border-subtle);
+      padding-top: 10px;
+      margin-top: 2px;
+      font-size: 13px;
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+    .footer-action-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      cursor: pointer;
+      padding: 4px 12px;
+      border-radius: var(--radius-full);
+      transition: background 0.15s;
+    }
+    .footer-action-item:hover {
+      background: var(--bg-tag);
+      color: var(--brand);
+    }
+
+    /* 底部原生导航栏 (参考图中 5 个项：首页 数码 + 发现 我的) */
+    .cool-bottom-bar-wrapper {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 64px;
+      background: var(--bg-dock);
+      backdrop-filter: blur(20px);
+      border-top: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      padding: 0 20px;
+      z-index: 50;
+    }
+    .nav-tab-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 3px;
+      font-size: 11px;
+      color: var(--text-secondary);
+      cursor: pointer;
+      min-width: 50px;
+    }
+    .nav-tab-cell.active {
+      color: var(--brand);
+      font-weight: 700;
+    }
+    .nav-center-add-btn {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: var(--brand);
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 24px;
+      font-weight: 300;
+      box-shadow: 0 4px 14px var(--brand-glow);
+      cursor: pointer;
+      margin-bottom: 4px;
+    }
+
+    /* 3图长截图 (继承方案 A 3:4 比例) */
+    .grid-3-vert {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      max-width: 580px;
+    }
+    .grid-3-vert .vert-cell {
+      aspect-ratio: 3 / 4;
+      background: #FFFFFF;
+      color: #111;
+      padding: 6px;
+      font-size: 7.5px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+      position: relative;
+      overflow: hidden;
+      line-height: 1.3;
+    }
+    .vert-cell .cell-tag {
+      position: absolute;
+      right: 4px;
+      bottom: 4px;
+      background: rgba(0,0,0,0.7);
+      color: white;
+      font-size: 7px;
+      padding: 1px 3px;
+      border-radius: 2px;
+    }
+
+    /* 特性卡片 */
+    .spec-grid {
+      width: 100%;
+      max-width: 1440px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 20px;
+      margin-top: 24px;
+    }
+    .spec-card {
+      background: var(--bg-card);
+      border: 1px solid var(--border-card);
+      border-radius: var(--radius-lg);
+      padding: 22px 24px;
+    }
+    .spec-card h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--brand);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .spec-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+    .spec-list strong { color: var(--text-primary); }
+  </style>
+</head>
+<body data-theme="light">
+
+  <!-- 顶部交互控制栏 -->
+  <header class="control-header">
+    <div class="header-title-row">
+      <div class="title-group">
+        <span class="brand-badge">Fluo Architecture · Reference Alignment</span>
+        <h1>酷安风格折叠大屏横竖屏信息流自适应原型</h1>
+        <p class="title-desc">
+          基于用户提供的平板/折叠屏大屏真机排版截图：横滑多频道顶栏 + 右置搜索胶囊 + 宽屏画报卡片 + <b>内嵌精选神评微卡片</b>
+        </p>
+      </div>
+      <div>
+        <button class="seg-btn" id="themeToggleBtn" style="border: 1px solid var(--border-card); padding: 8px 16px;">
+          🌓 切换明暗主题 (默认浅色)
+        </button>
+      </div>
+    </div>
+
+    <div class="control-groups">
+      <!-- 设备形态切换 -->
+      <div class="control-box">
+        <div class="control-label">
+          <span>设备视窗形态 (Device Orientation)</span>
+          <span id="currentResTag" style="color: var(--brand);">1180 × 760 vp (宽屏展开)</span>
+        </div>
+        <div class="seg-btn-group">
+          <button class="seg-btn active" data-viewport="landscape">
+            💻 大屏横屏 (参考截图比例)
+          </button>
+          <button class="seg-btn" data-viewport="portrait">
+            📖 大屏竖屏 (展开)
+          </button>
+          <button class="seg-btn" data-viewport="phone">
+            📱 外屏/手机态
+          </button>
+        </div>
+      </div>
+
+      <!-- 排版布局模式 -->
+      <div class="control-box">
+        <div class="control-label">
+          <span>宽屏卡片组织模式 (Card Layout Mode)</span>
+          <span style="color: var(--brand);">布局形态</span>
+        </div>
+        <div class="seg-btn-group">
+          <button class="seg-btn active" data-mode="mode-bounded">
+            ✨ 方案 1 (居中 860vp 黄金画报)
+          </button>
+          <button class="seg-btn" data-mode="mode-full">
+            📐 方案 2 (通栏自适应宽卡)
+          </button>
+          <button class="seg-btn" data-mode="mode-dual">
+            🗂️ 方案 3 (双列神评瀑布流)
+          </button>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- 动态方案特性横幅 -->
+  <div class="scheme-banner" id="schemeBanner">
+    <div style="display: flex; align-items: center; gap: 14px;">
+      <span class="scheme-badge" id="schemeBadge">核心提炼 · 深度对齐参考图</span>
+      <div class="scheme-text" id="schemeDesc">
+        <strong>宽屏画报卡片 + 内嵌高赞神评 + 顶部横滑频道栏</strong>：
+        在折叠大屏横屏下，卡片拥有充裕的行宽与图文呼吸感；内嵌「35赞 荔枝Rick」神评微卡片让用户无需进详情页即享高赞互动乐趣！
+      </div>
+    </div>
+  </div>
+
+  <!-- 模拟设备屏幕主体 -->
+  <main class="stage-canvas">
+    <div class="device-shell mode-landscape" id="deviceShell">
+      <div class="device-meta-bar" id="deviceMetaBar">
+        HarmonyOS 折叠内屏 · 大屏横屏 (1180 × 760 vp · 与参考图一致)
+      </div>
+
+      <div class="screen-viewport">
+        <!-- 鸿蒙状态栏 -->
+        <div class="harmony-status-bar">
+          <div>06:22</div>
+          <div style="display: flex; gap: 8px;">
+            <span>5G</span>
+            <span>VPN</span>
+            <span>25%</span>
+          </div>
+        </div>
+
+        <!-- 顶部频道滚动条 + 搜索胶囊 (完全还原参考图) -->
+        <div class="cool-top-bar">
+          <div class="channels-scroll-box" id="channelScrollBox">
+            <div class="channel-tab-item">话题</div>
+            <div class="channel-tab-item">关注</div>
+            <div class="channel-tab-item active">头条</div>
+            <div class="channel-tab-item">热榜</div>
+            <div class="channel-tab-item">快讯</div>
+            <div class="channel-tab-item">新机</div>
+            <div class="channel-tab-item">汽车</div>
+            <div class="channel-tab-item">开箱</div>
+            <div class="channel-tab-item">摄影</div>
+            <div class="channel-tab-item">教程</div>
+          </div>
+
+          <div class="top-actions-box">
+            <!-- 个人头像徽标 -->
+            <div class="top-avatar-dot">✈️</div>
+            <!-- 搜索胶囊 -->
+            <div class="search-capsule-btn">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+              </svg>
+              <span>搜索</span>
+            </div>
+            <!-- 消息信封 -->
+            <div class="icon-action-btn">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"></path>
+                <polyline points="22,6 12,13 2,6"></polyline>
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        <!-- 信息流滚动视窗 -->
+        <div class="feed-scroll-viewport layout-centered-bounded" id="feedScrollViewport">
+          
+          <!-- 卡片 1：纯文本热议短微博 (参考图卡片 1) -->
+          <article class="cool-post-card">
+            <p class="card-text-body" style="font-weight: 600; font-size: 15px;">
+              小米SU8: 这垃圾公司早该狠狠整治一次了
+            </p>
+            <div class="card-footer-actions">
+              <div class="footer-action-item">👍 85</div>
+              <div class="footer-action-item">💬 123</div>
+              <div class="footer-action-item">🔄 1</div>
+            </div>
+          </article>
+
+          <!-- 卡片 2：核心参考博文 (绘守未来 · 招聘求职 + GIF + 精选神评) -->
+          <article class="cool-post-card">
+            <!-- 博主信息 -->
+            <div class="card-top-row">
+              <div class="card-author-bundle">
+                <div class="author-avatar" style="background:#5C6BC0;">绘</div>
+                <div class="author-meta">
+                  <h4>绘守未来</h4>
+                  <p>
+                    <span>来自头条推荐</span>
+                    <span class="device-tag">📱 REDMI K80 Pro</span>
+                  </p>
+                </div>
+              </div>
+              <div class="card-more-chevron">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+
+            <!-- 正文 -->
+            <p class="card-text-body">
+              <span class="topic-hashtag">#酷安夜话#</span>
+              <span class="topic-hashtag">#酷工作#</span>
+              兄弟萌儿，求教：国企面试主要会有哪一些流程啊？会针对性问什么内容呢？没有这方面的经历，所以一点都不知道。网上搜出来的都没几个真人发言。
+            </p>
+
+            <!-- 左置单张 GIF 配图 -->
+            <div class="media-single-thumb">
+              <span>面试求职.gif</span>
+              <span class="thumb-badge">GIF</span>
+            </div>
+
+            <!-- 话题标签 -->
+            <div class="topic-capsule-tag">
+              🏷️ 酷安夜话
+            </div>
+
+            <!-- 【核心特色】：精选高赞神评内嵌微卡片 -->
+            <div class="hot-comment-preview-box">
+              <div class="hot-comment-badge-row">
+                <span class="comment-vote-badge">35 赞</span>
+              </div>
+              <p class="comment-preview-content">
+                <span class="comment-author-name">荔枝Rick:</span>
+                央企hr来了，公司规模大不大，流程啥的规矩吗？问题可能不太一样，形象整好一点，面试前几天别熬夜，穿着干净整洁，回答问题答案要积极，一定要以公司业务优先考虑，当然不排除一些hr会问一些偏私人的问题，回答问题尽可能有逻辑，坚定，眼神别躲闪。可以总结一些日常面试经常会问的问题..
+                <span class="comment-read-more">查看更多</span>
+              </p>
+            </div>
+
+            <!-- 底部三联操作 -->
+            <div class="card-footer-actions">
+              <div class="footer-action-item">👍 94</div>
+              <div class="footer-action-item">💬 139</div>
+              <div class="footer-action-item">🔄 1</div>
+            </div>
+          </article>
+
+          <!-- 卡片 3：真实微博长截图案例 (爱嘞亲亲 · 方案 A 3:4 竖卡在宽屏上的完美融入) -->
+          <article class="cool-post-card">
+            <div class="card-top-row">
+              <div class="card-author-bundle">
+                <div class="author-avatar" style="background:#EF4444;">爱</div>
+                <div class="author-meta">
+                  <h4>爱嘞亲亲</h4>
+                  <p>
+                    <span>23 小时前</span>
+                    <span class="device-tag">📱 Android</span>
+                  </p>
+                </div>
+              </div>
+              <div class="card-more-chevron">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <polyline points="6 9 12 15 18 9"></polyline>
+                </svg>
+              </div>
+            </div>
+
+            <p class="card-text-body">
+              大耍起时代，美国女孩耍起来
+              <span class="topic-hashtag">#taylorswift#</span>
+              <span class="topic-hashtag">#霉霉#</span>
+            </p>
+
+            <!-- 3张长截图按方案 A 的 3:4 黄金画幅舒展展示 -->
+            <div class="grid-3-vert">
+              <div class="vert-cell">
+                <strong style="font-size:8px;">如一日的知道所有舆论</strong>
+                <div style="color:#555; margin-top:2px;">@邱十里：笑死我了太好笑</div>
+                <span class="cell-tag">长图</span>
+              </div>
+              <div class="vert-cell">
+                <div style="color:#555; font-size:7px;">10-02 上海 回复 ♡8</div>
+                <div style="color:#333; margin-top:2px;">Alastor：真情实感</div>
+                <span class="cell-tag">长图</span>
+              </div>
+              <div class="vert-cell">
+                <strong style="color:#333; font-size:7px;">你清醒一点可以吗</strong>
+                <div style="color:#444; margin-top:2px;">story of us 隔着一个人坐</div>
+                <span class="cell-tag">长图</span>
+              </div>
+            </div>
+
+            <!-- 神评预览 -->
+            <div class="hot-comment-preview-box">
+              <div class="hot-comment-badge-row">
+                <span class="comment-vote-badge">8 赞</span>
+              </div>
+              <p class="comment-preview-content">
+                <span class="comment-author-name">MissWendyandThe萨摩耶:</span>
+                做什么都会被骂 就代表什么都可以做🔥
+              </p>
+            </div>
+
+            <div class="card-footer-actions">
+              <div class="footer-action-item">👍 154</div>
+              <div class="footer-action-item">💬 6</div>
+              <div class="footer-action-item">🔄 64</div>
+            </div>
+          </article>
+
+        </div>
+
+        <!-- 底部导航栏 (5 槽位居中，与参考图完全一致) -->
+        <div class="cool-bottom-bar-wrapper">
+          <div class="nav-tab-cell active">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+              <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"></path>
+              <polyline points="9 22 9 12 15 12 15 22"></polyline>
+            </svg>
+            <span>首页</span>
+          </div>
+          <div class="nav-tab-cell">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+              <line x1="8" y1="21" x2="16" y2="21"></line>
+              <line x1="12" y1="17" x2="12" y2="21"></line>
+            </svg>
+            <span>数码</span>
+          </div>
+          <div class="nav-center-add-btn">＋</div>
+          <div class="nav-tab-cell">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+            </svg>
+            <span>发现</span>
+          </div>
+          <div class="nav-tab-cell">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+            <span>我的</span>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </main>
+
+  <!-- 设计要素深度剖析与端侧落地规范 -->
+  <section class="spec-grid">
+    <div class="spec-card">
+      <h3>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <circle cx="12" cy="12" r="10"></circle>
+          <line x1="12" y1="8" x2="12" y2="12"></line>
+          <line x1="12" y1="16" x2="12.01" y2="16"></line>
+        </svg>
+        参考图三大精髓提炼 (为什么好？)
+      </h3>
+      <ul class="spec-list">
+        <li>
+          <strong>1. 顶部全宽横滑频道条 + 搜索胶囊</strong>：充分利用大屏横向宽度，十几个频道（关注、推荐、热榜、新机、摄影等）横向舒展，右侧紧贴 <code>Q 搜索</code> 胶囊，既饱满又具备顶级实用性。
+        </li>
+        <li>
+          <strong>2. 内嵌精选神评微卡片 (重点！)</strong>：在信息流卡片内部直接展示 <code>[35赞 荔枝Rick: ...]</code>，大屏横屏不再只看单调干瘪的文字，<strong>热评直接带动高价值阅读</strong>，视觉层次丰富。
+        </li>
+        <li>
+          <strong>3. 优雅的行宽与设备标识</strong>：博主带有 <code>REDMI K80 Pro</code> 机型后缀与话题标签，文字行长处于自然舒展范围。
+        </li>
+      </ul>
+    </div>
+
+    <div class="spec-card" style="border-color: var(--brand-border);">
+      <h3>
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+          <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        Fluo 落地落位规划
+      </h3>
+      <ul class="spec-list">
+        <li>
+          <strong>1. 首页顶栏升级</strong>：将现网简单的关注/推荐，拓展为**可横滑频道栏（关注、推荐、热搜、同城、数码、摄影、生活等）**，右侧无缝嵌入 Fluo 原生毛玻璃搜索胶囊。
+        </li>
+        <li>
+          <strong>2. 宽屏画报卡片 (860vp 居中或通栏自适应)</strong>：大屏竖屏下自然铺满（两边 16vp 边距），大屏横屏下提供舒适的 860vp 居中画报流，避免文字单行拉扯过长。
+        </li>
+        <li>
+          <strong>3. 信息流神评解析</strong>：微博 API 中如包含高赞热评，自动在信息流卡片底部渲染 <strong>Sage 绿角标高赞热评盒</strong>！
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- 交互逻辑驱动 -->
+  <script>
+    const state = {
+      viewport: 'landscape',
+      mode: 'mode-bounded',
+      isDark: false
+    };
+
+    function applyViewport(vp) {
+      state.viewport = vp;
+      const shell = document.getElementById('deviceShell');
+      const meta = document.getElementById('deviceMetaBar');
+      const tag = document.getElementById('currentResTag');
+
+      shell.className = `device-shell mode-${vp}`;
+
+      if (vp === 'landscape') {
+        meta.textContent = 'HarmonyOS 折叠内屏 · 大屏横屏 (1180 × 760 vp · 与参考图一致)';
+        tag.textContent = '1180 × 760 vp (宽屏展开)';
+      } else if (vp === 'portrait') {
+        meta.textContent = 'HarmonyOS 折叠内屏 · 大屏竖屏 (780 × 940 vp · 近正方展开)';
+        tag.textContent = '780 × 940 vp (大屏竖屏)';
+      } else if (vp === 'phone') {
+        meta.textContent = 'HarmonyOS 折叠外屏 / 直板手机 (390 × 840 vp · 手机态)';
+        tag.textContent = '390 × 840 vp (外屏手机)';
+      }
+    }
+
+    function applyMode(m) {
+      state.mode = m;
+      const container = document.getElementById('feedScrollViewport');
+      container.className = `feed-scroll-viewport ${m}`;
+
+      const bannerDesc = document.getElementById('schemeDesc');
+      if (m === 'mode-bounded') {
+        bannerDesc.innerHTML = `<strong>方案 1 (推荐)：居中 860vp 黄金画报流</strong>：在大屏横屏下约束在 860vp 舒适眼动宽度，两侧留有呼吸空间；神评微卡片与大图文舒展呈现，兼顾阅读舒适度与沉浸感。`;
+      } else if (m === 'mode-full') {
+        bannerDesc.innerHTML = `<strong>方案 2：通栏自适应宽卡</strong>：卡片在大屏横屏下直接通栏铺展，左右边距 24vp，完整展现 1100vp 宽屏视觉冲击力。`;
+      } else if (m === 'mode-dual') {
+        bannerDesc.innerHTML = `<strong>方案 3：双列神评瀑布流</strong>：带神评的高价值卡片以双列呈现，在极高密度下浏览丰富信息流。`;
+      }
+    }
+
+    // 交互绑定
+    document.querySelectorAll('[data-viewport]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-viewport]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyViewport(btn.dataset.viewport);
+      });
+    });
+
+    document.querySelectorAll('[data-mode]').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('[data-mode]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        applyMode(btn.dataset.mode);
+      });
+    });
+
+    document.getElementById('themeToggleBtn').addEventListener('click', () => {
+      state.isDark = !state.isDark;
+      document.body.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
+    });
+
+    // 顶部频道点击切换
+    document.querySelectorAll('.channel-tab-item').forEach(tab => {
+      tab.addEventListener('click', () => {
+        document.querySelectorAll('.channel-tab-item').forEach(t => t.classList.remove('active'));
+        tab.classList.add('active');
+      });
+    });
+
+    // 底部导航栏点击切换
+    document.querySelectorAll('.nav-tab-cell').forEach(cell => {
+      cell.addEventListener('click', () => {
+        document.querySelectorAll('.nav-tab-cell').forEach(c => c.classList.remove('active'));
+        cell.classList.add('active');
+      });
+    });
+
+    // URL 参数驱动初始化（用于自动化截图生成）
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('viewport')) state.viewport = params.get('viewport');
+    if (params.has('mode')) state.mode = params.get('mode');
+    if (params.has('theme')) {
+      state.isDark = params.get('theme') === 'dark';
+      document.body.setAttribute('data-theme', state.isDark ? 'dark' : 'light');
+    }
+
+    document.querySelectorAll('[data-viewport]').forEach(b => {
+      b.classList.toggle('active', b.dataset.viewport === state.viewport);
+    });
+    document.querySelectorAll('[data-mode]').forEach(b => {
+      b.classList.toggle('active', b.dataset.mode === state.mode);
+    });
+
+    applyViewport(state.viewport);
+    applyMode(state.mode);
+  </script>
+</body>
+</html>

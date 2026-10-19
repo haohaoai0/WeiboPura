@@ -1,10 +1,10 @@
 {
-  "name": "tieba-pura",
-  "version": "1.0.6",
+  "name": "fluo",
+  "version": "1.0.0",
   "modelVersion": "26.0.0",
-  "description": "TiebaPura HarmonyOS Client",
+  "description": "Fluo HarmonyOS Client",
   "license": "GPL-3.0",
-  "author": "a307608689-afk",
+  "author": "HaiYangMa13",
   "dependencies": {},
   "devDependencies": {}
 }

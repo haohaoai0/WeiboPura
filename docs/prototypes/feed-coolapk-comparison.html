@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>Fluo 信息流参考对齐深度解析</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --bg: #0C100E;
+      --bg-card: #151C18;
+      --text-p: #EEF3EF;
+      --text-s: #8C9991;
+      --border: rgba(255,255,255,0.08);
+      --font-cn: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", sans-serif;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-cn);
+      background: var(--bg);
+      color: var(--text-p);
+      padding: 30px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    .header {
+      width: 100%;
+      max-width: 1560px;
+      margin-bottom: 24px;
+      text-align: center;
+    }
+    .badge {
+      display: inline-block;
+      background: rgba(78,170,120,0.15);
+      border: 1px solid rgba(78,170,120,0.3);
+      color: var(--brand);
+      padding: 4px 14px;
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      margin-bottom: 10px;
+    }
+    h1 { font-size: 26px; font-weight: 800; margin-bottom: 8px; }
+    p.sub { color: var(--text-s); font-size: 14px; }
+
+    .compare-grid {
+      width: 100%;
+      max-width: 1560px;
+      display: grid;
+      grid-template-columns: 1.1fr 1fr;
+      gap: 24px;
+      margin-bottom: 28px;
+    }
+
+    .column-box {
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .col-header {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .col-title {
+      font-size: 16px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--brand);
+    }
+
+    .content-box {
+      padding: 18px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      font-size: 13.5px;
+      line-height: 1.6;
+      color: var(--text-s);
+    }
+    .content-box strong { color: var(--text-p); }
+
+    .feature-item {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 12px 14px;
+    }
+    .feature-item h4 {
+      color: var(--brand);
+      font-size: 14px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    /* 映射规划表 */
+    .plan-card {
+      width: 100%;
+      max-width: 1560px;
+      background: var(--bg-card);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 22px 26px;
+    }
+    .plan-card h3 {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--brand);
+      margin-bottom: 14px;
+    }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th, td { padding: 12px 14px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--text-s); font-weight: 600; background: rgba(255,255,255,0.02); }
+    td strong { color: var(--brand); }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <div class="badge">Fluo Architecture · Foldable Feed Reference Analysis</div>
+    <h1>折叠大屏横竖屏信息流设计参考对齐分析</h1>
+    <p class="sub">深度对齐用户提供的平板/折叠屏大屏真机截图 · 核心要素拆解与 Fluo 落地技术实现</p>
+  </div>
+
+  <div class="compare-grid">
+    
+    <!-- 左栏：参考图精髓分析 -->
+    <div class="column-box">
+      <div class="col-header">
+        <div class="col-title">📱 用户参考截图核心模式深度拆解</div>
+        <span style="font-size:11px; background:rgba(78,170,120,0.15); color:var(--brand); padding:3px 8px; border-radius:4px; font-weight:700;">结构精髓</span>
+      </div>
+      <div class="content-box">
+        <div class="feature-item">
+          <h4>1. 顶部横滑多频道 + 右侧搜索胶囊</h4>
+          <p>
+            参考图左侧提供可横滑的丰富频道集（<code>话题 关注 头条 热榜 快讯 新机 汽车 开箱 摄影 教程...</code>），右侧紧跟个人头像、<code>Q 搜索</code> 胶囊与消息入口。横向拉伸后毫无空洞，天然填满宽屏顶栏。
+          </p>
+        </div>
+
+        <div class="feature-item">
+          <h4>2. 宽屏画报级卡片排版 (单列舒适流)</h4>
+          <p>
+            并未采用生硬的多列瀑布流，而是采用<strong>舒展通透的单列宽卡片</strong>（在大屏横屏下行宽约 800~860vp），正文排版具备最佳阅读视线长度，配图置于左侧或网格舒展，彻底告别旧版 640vp 居中造成的巨大黑边。
+          </p>
+        </div>
+
+        <div class="feature-item" style="border-color: rgba(78,170,120,0.35);">
+          <h4>3. 🌟 【核心特色】：信息流内嵌精选神评微卡片</h4>
+          <p>
+            在正文下方直接呈现带鲜明角标（如 <code>35赞</code>）的高赞评论微卡片：<code>荔枝Rick: 央企hr来了... 查看更多</code>。在大屏浏览时，用户**无需反复点击进入详情页**，即可在信息流中一眼获取最精彩的网友神回复！
+          </p>
+        </div>
+
+        <div class="feature-item">
+          <h4>4. 底部通栏 5 项导航与居中悬浮圆钮</h4>
+          <p>
+            底部导航分布均衡，中间带有专属 <code>＋</code> 发帖圆形操作钮，大屏横屏双手握持时两侧大拇指触达极度自然。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右栏：Fluo 落地映射 -->
+    <div class="column-box">
+      <div class="col-header">
+        <div class="col-title">🚀 Fluo 鸿蒙端侧落地演进方案</div>
+        <span style="font-size:11px; background:rgba(59,130,246,0.15); color:#60A5FA; padding:3px 8px; border-radius:4px; font-weight:700;">实现方案</span>
+      </div>
+      <div class="content-box">
+        <div class="feature-item">
+          <h4>1. 顶栏：横滑频道栏 + Fluo 原生毛玻璃搜索</h4>
+          <p>
+            升级 <code>WeiboHomeTab.ets</code> 顶栏，支持横向滑动的微视频/热门分类标签（如 <code>关注 推荐 热搜 摄影 数码 影视 汽车 搞笑...</code>），并在右侧保留 Fluo 标志性的 HDS 毛玻璃搜索胶囊与发现入口。
+          </p>
+        </div>
+
+        <div class="feature-item">
+          <h4>2. 卡片：响应式自适应宽幅卡片</h4>
+          <p>
+            - <strong>大屏竖屏 (8:7 近正方)</strong>：卡片自然铺满（两侧 16vp 边距），文字、九宫格与 3:4 竖卡舒展排布。<br>
+            - <strong>大屏横屏 (16:10 宽屏)</strong>：卡片约束在 <code>maxWidth: 860vp</code> 居中（或通栏），两侧留有微光呼吸空间，解决单行字符过长难以阅读的问题。
+          </p>
+        </div>
+
+        <div class="feature-item" style="border-color: rgba(78,170,120,0.35);">
+          <h4>3. 神评：解析并展示高赞热评盒</h4>
+          <p>
+            在 <code>WeiboPost</code> 模型中提取热门评论（或微博 <code>hot_page</code> 高赞互动），在信息流卡片底部直接渲染 <strong>Fluo Sage 绿角标高赞神评盒子</strong>，并支持一键跳转详情该评论楼层。
+          </p>
+        </div>
+
+        <div class="feature-item">
+          <h4>4. 底部：共享原生 HDS 悬浮 Tab 胶囊</h4>
+          <p>
+            保持 Fluo 现有的 HDS IMMERSIVE 原生悬浮 Dock，大屏横竖屏自动居中，与详情页完全统一质感。
+          </p>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 规格表 -->
+  <div class="plan-card">
+    <h3>📋 Fluo 信息流改造成本与模块落地清单</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>模块 / 文件</th>
+          <th>改造重点</th>
+          <th>预期体验提升</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>WeiboHomeTab.ets (顶栏)</strong></td>
+          <td>将单调的“关注/推荐”拓展为横向滚动频道栏，右侧整合 <code>Q 搜索</code> 胶囊</td>
+          <td>横屏顶栏完全饱满，支持多主题多频道自由滑动切换</td>
+        </tr>
+        <tr>
+          <td><strong>WeiboHomeTab.ets (卡片)</strong></td>
+          <td>破除 640vp 硬编码限制，支持大屏竖屏自适应铺满、大屏横屏 860vp 舒展画报卡片</td>
+          <td>消灭 500vp 无效黑边，解决长文本与大图排版局促</td>
+        </tr>
+        <tr>
+          <td><strong>WeiboHomeTab.ets (神评)</strong></td>
+          <td>卡片内新增 <code>HotCommentBox</code> 组件，渲染点赞角标与神评文本</td>
+          <td><strong>最核心阅读价值</strong>：大屏刷微博时无需点击进详情即可看精彩评论</td>
+        </tr>
+        <tr>
+          <td><strong>WeiboService.ets</strong></td>
+          <td>在 timeline 数据解析中提取高赞热评字段或评论概览</td>
+          <td>数据层与 UI 层无缝对接</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</body>
+</html>

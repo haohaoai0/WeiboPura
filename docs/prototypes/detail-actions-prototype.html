@@ -1,0 +1,1008 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo · 微博详情页「转发 · 评论 · 赞」三栏精准原型</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --brand-hover: #439669;
+      --brand-light: rgba(78, 170, 120, 0.12);
+      --brand-border: rgba(78, 170, 120, 0.35);
+      --like-color: #E05252;
+      --fav-color: #F59E0B;
+
+      --bg: #F4F6F5;
+      --bg-card: #FFFFFF;
+      --bg-card-subtle: #F8FAF9;
+      --bg-input: rgba(0, 0, 0, 0.05);
+      --text-primary: #191E1B;
+      --text-secondary: #616B66;
+      --text-tertiary: #9AA39E;
+      --border-subtle: rgba(0, 0, 0, 0.06);
+
+      --hds-dock-bg: rgba(255, 255, 255, 0.86);
+      --hds-dock-blur: blur(28px) saturate(190%);
+      --hds-dock-border: rgba(255, 255, 255, 0.65);
+      --hds-dock-shadow: 0 12px 32px rgba(18, 38, 28, 0.08);
+
+      --font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", Roboto, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0E1310;
+      --bg-card: #161D19;
+      --bg-card-subtle: #1C2420;
+      --bg-input: rgba(255, 255, 255, 0.07);
+      --text-primary: #EDF2EE;
+      --text-secondary: #8E9A93;
+      --text-tertiary: #546059;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+
+      --hds-dock-bg: rgba(22, 29, 25, 0.86);
+      --hds-dock-blur: blur(28px) saturate(190%);
+      --hds-dock-border: rgba(255, 255, 255, 0.12);
+      --hds-dock-shadow: 0 16px 40px rgba(0, 0, 0, 0.48);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: #0A0D0B;
+      color: #EDF2EE;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    /* 顶部控制面板 */
+    .top-panel {
+      width: 100%;
+      max-width: 1280px;
+      background: #131A16;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .brand-title {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .brand-badge {
+      background: linear-gradient(135deg, #4EAA78, #2E7D52);
+      color: white;
+      font-weight: 700;
+      font-size: 13px;
+      padding: 4px 10px;
+      border-radius: 8px;
+    }
+
+    .brand-heading {
+      font-size: 18px;
+      font-weight: 600;
+      color: #EDF2EE;
+    }
+
+    .brand-sub {
+      font-size: 12px;
+      color: #8E9A93;
+      margin-top: 2px;
+    }
+
+    .controls-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .tab-pill-btn {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #EDF2EE;
+      padding: 8px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s;
+    }
+
+    .tab-pill-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .tab-pill-btn.active {
+      background: var(--brand);
+      color: white;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(78, 170, 120, 0.35);
+    }
+
+    /* 手机模型 */
+    .device-frame {
+      width: 430px;
+      height: 900px;
+      background: #000;
+      border-radius: 48px;
+      padding: 12px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 0 1px rgba(255, 255, 255, 0.15);
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      flex-shrink: 0;
+    }
+
+    .device-screen {
+      width: 100%;
+      height: 100%;
+      background: var(--bg);
+      border-radius: 38px;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      transition: background 0.3s ease;
+    }
+
+    /* 1. 原生顶栏：完全保留 Fluo 原样 */
+    .status-bar {
+      height: 44px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      flex-shrink: 0;
+      z-index: 30;
+      background: var(--bg);
+    }
+
+    .status-right {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 12px;
+    }
+
+    .hds-title-bar {
+      height: 52px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      background: var(--bg);
+      z-index: 25;
+      border-bottom: 0.5px solid var(--border-subtle);
+    }
+
+    .nav-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      cursor: pointer;
+      font-size: 18px;
+    }
+
+    .nav-title {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* 滚动区域 */
+    .scroll-content {
+      flex: 1;
+      overflow-y: auto;
+      overflow-x: hidden;
+      padding: 12px 14px 105px;
+      -webkit-overflow-scrolling: touch;
+      position: relative;
+    }
+
+    .scroll-content::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 2. 正文卡片：完全保留 Fluo 原排版 */
+    .post-card {
+      background: var(--bg-card);
+      border-radius: 20px;
+      padding: 16px;
+      margin-bottom: 12px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .post-author-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .author-avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: #F59E0B;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 18px;
+    }
+
+    .author-info {
+      flex: 1;
+    }
+
+    .author-name-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .author-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .verified-badge {
+      width: 14px;
+      height: 14px;
+      background: #F59E0B;
+      border-radius: 50%;
+      color: white;
+      font-size: 9px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 800;
+    }
+
+    .post-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    .btn-follow {
+      padding: 5px 12px;
+      border-radius: 16px;
+      border: none;
+      background: var(--brand-light);
+      color: var(--brand);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    .post-text {
+      font-size: 15.5px;
+      line-height: 1.62;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+      word-break: break-word;
+    }
+
+    .media-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 6px;
+      margin-bottom: 14px;
+      border-radius: 12px;
+      overflow: hidden;
+    }
+
+    .media-thumb {
+      aspect-ratio: 1;
+      background: #2D3732;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      color: #8E9A93;
+      font-size: 11px;
+      border-radius: 8px;
+      text-align: center;
+      padding: 4px;
+    }
+
+    /* ========================================================
+       3. 核心改造点：只参考「转发 · 评论 · 赞」三栏切换
+       ======================================================== */
+    .detail-tabs-container {
+      background: var(--bg-card);
+      border-radius: 18px 18px 0 0;
+      padding: 0 18px;
+      border: 1px solid var(--border-subtle);
+      border-bottom: 0.5px solid var(--border-subtle);
+      position: sticky;
+      top: -12px;
+      z-index: 20;
+    }
+
+    .detail-tabs-row {
+      display: flex;
+      align-items: center;
+      height: 48px;
+      gap: 32px;
+      position: relative;
+    }
+
+    .detail-tab-item {
+      display: flex;
+      align-items: baseline;
+      gap: 4px;
+      cursor: pointer;
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      position: relative;
+      height: 100%;
+      align-items: center;
+      transition: all 0.2s cubic-bezier(0.2, 0, 0.2, 1);
+    }
+
+    .detail-tab-item.active {
+      color: var(--text-primary);
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .tab-count {
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .detail-tab-item.active .tab-count {
+      color: var(--text-primary);
+    }
+
+    /* 动态下划线 (使用 Fluo 原生鼠尾草绿品牌色) */
+    .tab-indicator {
+      position: absolute;
+      bottom: 0;
+      height: 3px;
+      background: var(--brand);
+      border-radius: 2px;
+      transition: all 0.25s cubic-bezier(0.2, 0.8, 0.3, 1);
+    }
+
+    /* 对应切换的列表内容卡片 */
+    .tab-content-card {
+      background: var(--bg-card);
+      border-radius: 0 0 18px 18px;
+      padding: 14px 18px 24px;
+      border: 1px solid var(--border-subtle);
+      border-top: none;
+      min-height: 400px;
+      margin-bottom: 20px;
+    }
+
+    /* 视图 1：赞 (Attitudes / Likes) 列表 */
+    .like-user-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 0;
+      border-bottom: 0.5px solid var(--border-subtle);
+      cursor: pointer;
+    }
+
+    .like-user-row:last-child {
+      border-bottom: none;
+    }
+
+    .user-avatar-like {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: white;
+      font-weight: 700;
+      font-size: 16px;
+    }
+
+    .like-user-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .like-user-fans {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 3px;
+    }
+
+    /* 视图 2：转发 (Reposts) 列表 */
+    .repost-item-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+      padding: 14px 0;
+      border-bottom: 0.5px solid var(--border-subtle);
+    }
+
+    .repost-item-row:last-child {
+      border-bottom: none;
+    }
+
+    .repost-main {
+      flex: 1;
+    }
+
+    .repost-user-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .repost-user-name {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .repost-time-source {
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+      margin-bottom: 6px;
+    }
+
+    .repost-text {
+      font-size: 14px;
+      line-height: 1.55;
+      color: var(--text-primary);
+    }
+
+    /* 视图 3：评论 (Comments) 列表 - 保留 Fluo 原样 */
+    .comments-header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .sort-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .sort-pill {
+      font-size: 12px;
+      padding: 4px 10px;
+      border-radius: 12px;
+      color: var(--text-secondary);
+      background: var(--bg-input);
+      cursor: pointer;
+      border: none;
+    }
+
+    .sort-pill.active {
+      color: var(--brand);
+      font-weight: 600;
+      background: var(--brand-light);
+    }
+
+    .comment-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 12px 0;
+      border-bottom: 0.5px solid var(--border-subtle);
+    }
+
+    .comment-item:last-child {
+      border-bottom: none;
+    }
+
+    .comment-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #4B5563;
+      flex-shrink: 0;
+    }
+
+    .comment-main {
+      flex: 1;
+    }
+
+    .comment-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 3px;
+    }
+
+    .comment-user {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .comment-like {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      cursor: pointer;
+    }
+
+    .comment-text {
+      font-size: 13.5px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .comment-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .sub-replies-box {
+      background: var(--bg-card-subtle);
+      border-radius: 10px;
+      padding: 8px 10px;
+      margin-top: 8px;
+    }
+
+    .sub-reply-item {
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--text-secondary);
+      margin-bottom: 4px;
+    }
+
+    .sub-reply-user {
+      color: var(--text-primary);
+      font-weight: 600;
+    }
+
+    /* 4. 原生底栏：完全保留 Fluo 原样 (说点什么... + 赞 + 收藏 + 评论) */
+    .bottom-dock-wrapper {
+      position: absolute;
+      bottom: 22px;
+      left: 14px;
+      right: 14px;
+      z-index: 40;
+    }
+
+    .bottom-dock {
+      width: 100%;
+      height: 54px;
+      border-radius: 27px;
+      background: var(--hds-dock-bg);
+      backdrop-filter: var(--hds-dock-blur);
+      -webkit-backdrop-filter: var(--hds-dock-blur);
+      border: 1px solid var(--hds-dock-border);
+      box-shadow: var(--hds-dock-shadow);
+      display: flex;
+      align-items: center;
+      padding: 0 8px 0 14px;
+      gap: 8px;
+    }
+
+    .dock-input {
+      flex: 1;
+      height: 38px;
+      border-radius: 19px;
+      background: var(--bg-input);
+      border: none;
+      padding: 0 14px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      color: var(--text-tertiary);
+      font-size: 13px;
+      cursor: pointer;
+    }
+
+    .dock-actions {
+      display: flex;
+      align-items: center;
+      gap: 2px;
+    }
+
+    .dock-btn {
+      height: 38px;
+      padding: 0 8px;
+      border-radius: 19px;
+      border: none;
+      background: transparent;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-primary);
+      font-size: 12px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    .dock-btn.liked {
+      color: var(--like-color);
+    }
+
+    .dock-btn.liked svg {
+      fill: var(--like-color);
+    }
+
+    .dock-btn.faved {
+      color: var(--fav-color);
+    }
+
+    .dock-btn.faved svg {
+      fill: var(--fav-color);
+    }
+
+    .nav-indicator {
+      position: absolute;
+      bottom: 6px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 120px;
+      height: 4px;
+      background: var(--text-primary);
+      opacity: 0.35;
+      border-radius: 2px;
+      z-index: 50;
+      pointer-events: none;
+    }
+
+    svg {
+      width: 18px;
+      height: 18px;
+      stroke-width: 2;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      flex-shrink: 0;
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <!-- 顶部控制条 -->
+  <div class="top-panel">
+    <div class="brand-title">
+      <span class="brand-badge">FLUO PREVIEW</span>
+      <div>
+        <div class="brand-heading">Fluo · 详情页「转发 · 评论 · 赞」精准改造方案</div>
+        <div class="brand-sub">严格遵循要求：其余排版完全保持原样，只将正文下方替换为「转发 · 评论 · 赞」三栏切换</div>
+      </div>
+    </div>
+
+    <div class="controls-row">
+      <button class="tab-pill-btn" id="btnTabRepost" onclick="selectTab('repost')">
+        <span>转发 (3)</span>
+      </button>
+      <button class="tab-pill-btn" id="btnTabComment" onclick="selectTab('comment')">
+        <span>评论 (20)</span>
+      </button>
+      <button class="tab-pill-btn active" id="btnTabLike" onclick="selectTab('like')">
+        <span>赞 (111)</span>
+      </button>
+
+      <button class="tab-pill-btn" onclick="toggleTheme()">
+        <span id="theme-icon">🌙</span>
+        <span id="theme-label">暗色</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 手机原型容器 -->
+  <div class="device-frame">
+    <div class="device-screen" id="deviceScreen">
+
+      <!-- 状态栏 (原样) -->
+      <div class="status-bar">
+        <span>14:38</span>
+        <div class="status-right">
+          <span>5G</span>
+          <span>90%</span>
+        </div>
+      </div>
+
+      <!-- 顶栏 (原样，含返回、标题、分享) -->
+      <div class="hds-title-bar">
+        <button class="nav-btn" title="返回" onclick="alert('返回')">
+          <svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <div class="nav-title">微博正文</div>
+        <button class="nav-btn" title="分享" onclick="alert('呼出鸿蒙系统分享')">
+          <svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+        </button>
+      </div>
+
+      <!-- 滚动区域 -->
+      <div class="scroll-content" id="scrollContent">
+
+        <!-- 博文卡片 (其余排版完全不动) -->
+        <div class="post-card">
+          <div class="post-author-row">
+            <div class="author-avatar" style="background: linear-gradient(135deg, #10B981, #047857);">泽</div>
+            <div class="author-info">
+              <div class="author-name-row">
+                <span class="author-name">钟文泽</span>
+                <span class="verified-badge">V</span>
+              </div>
+              <div class="post-meta">10-10 12:20 · 鸿蒙原生客户端</div>
+            </div>
+            <button class="btn-follow">+ 关注</button>
+          </div>
+
+          <div class="post-text">
+            打卡梅兰芳故居。这里不仅承载着京剧大师的艺术岁月，更是近现代文化交流的一扇重要窗口。<br>
+            戏服华美，笔触深沉，感受戏曲艺术跨越百年的生命力。<br><br>
+            大家平时最喜欢梅先生的哪一出代表作？欢迎在评论区聊聊。
+          </div>
+
+          <div class="media-grid">
+            <div class="media-thumb">🎭 戏服展品</div>
+            <div class="media-thumb">📜 名家墨宝</div>
+            <div class="media-thumb">🌸 故居院景</div>
+          </div>
+        </div>
+
+        <!-- 核心改造点：三栏分段切换 (转发 · 评论 · 赞) -->
+        <div class="detail-tabs-container">
+          <div class="detail-tabs-row" id="tabsRow">
+            <div class="detail-tab-item" id="tabRepost" onclick="selectTab('repost')">
+              <span>转发</span>
+              <span class="tab-count">(3)</span>
+            </div>
+            <div class="detail-tab-item" id="tabComment" onclick="selectTab('comment')">
+              <span>评论</span>
+              <span class="tab-count">(20)</span>
+            </div>
+            <div class="detail-tab-item active" id="tabLike" onclick="selectTab('like')">
+              <span>赞</span>
+              <span class="tab-count">(111)</span>
+            </div>
+
+            <!-- 动态下划线 -->
+            <div class="tab-indicator" id="tabIndicator"></div>
+          </div>
+        </div>
+
+        <!-- 列表切换内容 -->
+        <div class="tab-content-card">
+
+          <!-- 1. 赞 (Tab: like) - 显示点赞用户列表 -->
+          <div id="viewLike">
+            <div class="like-user-row">
+              <div class="user-avatar-like" style="background: linear-gradient(135deg, #F87171, #EF4444);">墨</div>
+              <div style="flex: 1;">
+                <div class="like-user-name">墨月萧芋</div>
+                <div class="like-user-fans">粉丝：112</div>
+              </div>
+            </div>
+            <div class="like-user-row">
+              <div class="user-avatar-like" style="background: linear-gradient(135deg, #60A5FA, #3B82F6);">带</div>
+              <div style="flex: 1;">
+                <div class="like-user-name">带毛老师</div>
+                <div class="like-user-fans">粉丝：142</div>
+              </div>
+            </div>
+            <div class="like-user-row">
+              <div class="user-avatar-like" style="background: linear-gradient(135deg, #34D399, #10B981);">I</div>
+              <div style="flex: 1;">
+                <div class="like-user-name">Imagine-J</div>
+                <div class="like-user-fans">粉丝：1179</div>
+              </div>
+            </div>
+            <div class="like-user-row">
+              <div class="user-avatar-like" style="background: linear-gradient(135deg, #F472B6, #EC4899);">消</div>
+              <div style="flex: 1;">
+                <div class="like-user-name">谁不爱消极</div>
+                <div class="like-user-fans">粉丝：9</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 2. 转发 (Tab: repost) - 显示转发动态列表 -->
+          <div id="viewRepost" style="display: none;">
+            <div class="repost-item-row">
+              <div class="user-avatar-like" style="background: #FCD34D; font-size:20px;">🐱</div>
+              <div class="repost-main">
+                <div class="repost-user-row">
+                  <span class="repost-user-name">wyd你过来</span>
+                  <span class="verified-badge">V</span>
+                </div>
+                <div class="repost-time-source">昨天 15:02 来自 Xiaomi 14</div>
+                <div class="repost-text">转发微博</div>
+              </div>
+            </div>
+            <div class="repost-item-row">
+              <div class="user-avatar-like" style="background: #93C5FD; font-size:20px;">👤</div>
+              <div class="repost-main">
+                <div class="repost-user-row">
+                  <span class="repost-user-name">用户6091024732</span>
+                </div>
+                <div class="repost-time-source">10月08日 17:22 来自 vivo S7e 5G</div>
+                <div class="repost-text">好评打卡</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 3. 评论 (Tab: comment) - 原样保留 Fluo 的评论流及排序 -->
+          <div id="viewComment" style="display: none;">
+            <div class="comments-header-row">
+              <span style="font-size:13px; color:var(--text-secondary);">共 20 条评论</span>
+              <div class="sort-pills">
+                <button class="sort-pill active" id="sortHot" onclick="setSort('hot')">按热度</button>
+                <button class="sort-pill" id="sortTime" onclick="setSort('time')">按实时</button>
+              </div>
+            </div>
+
+            <div class="comment-item">
+              <div class="comment-avatar" style="background: #E11D48;"></div>
+              <div class="comment-main">
+                <div class="comment-top">
+                  <span class="comment-user">科比·布莱特恩</span>
+                  <div class="comment-like">
+                    <svg viewBox="0 0 24 24" style="width: 14px; height: 14px;"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+                    <span>124</span>
+                  </div>
+                </div>
+                <div class="comment-text">文化底蕴非常深厚，现场看戏服的刺绣针脚真的令人叹为观止！</div>
+                <div class="comment-time">10-10 12:45 · 刚刚</div>
+
+                <div class="sub-replies-box">
+                  <div class="sub-reply-item">
+                    <span class="sub-reply-user">清风夜翔：</span>确实，现在的工艺很难复刻当年的韵味了。
+                  </div>
+                  <button style="font-size:11.5px; color:var(--brand); background:none; border:none; cursor:pointer;" onclick="alert('加载更多回复')">
+                    查看全部 16 条回复 ›
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- 底部悬浮 HDS Dock (完全保留 Fluo 原样: 说点什么... + 赞 + 收藏 + 评论) -->
+      <div class="bottom-dock-wrapper">
+        <div class="bottom-dock">
+          <!-- 1. 说点什么... -->
+          <div class="dock-input" onclick="alert('打开评论面板')">
+            <svg viewBox="0 0 24 24" style="width: 15px; height: 15px;"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>
+            <span>说点什么...</span>
+          </div>
+
+          <!-- 2. 原样三按钮：点赞、收藏、评论 -->
+          <div class="dock-actions">
+            <!-- 赞 -->
+            <button class="dock-btn" id="dockLikeBtn" onclick="toggleLike()">
+              <svg id="dockLikeSvg" viewBox="0 0 24 24"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg>
+              <span>111</span>
+            </button>
+
+            <!-- 收藏 -->
+            <button class="dock-btn" id="dockFavBtn" onclick="toggleFav()">
+              <svg viewBox="0 0 24 24"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+              <span>收藏</span>
+            </button>
+
+            <!-- 评论 -->
+            <button class="dock-btn" onclick="selectTab('comment')">
+              <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+              <span>20</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 鸿蒙底部手势条 -->
+      <div class="nav-indicator"></div>
+
+    </div>
+  </div>
+
+  <script>
+    let activeTab = 'like';
+    let isLiked = false;
+    let isFaved = false;
+
+    function updateIndicator() {
+      const activeEl = document.getElementById(activeTab === 'repost' ? 'tabRepost' : (activeTab === 'comment' ? 'tabComment' : 'tabLike'));
+      const indicator = document.getElementById('tabIndicator');
+      if (activeEl && indicator) {
+        indicator.style.left = activeEl.offsetLeft + 'px';
+        indicator.style.width = activeEl.offsetWidth + 'px';
+      }
+    }
+
+    function selectTab(tab) {
+      activeTab = tab;
+      document.querySelectorAll('.detail-tab-item').forEach(el => el.classList.remove('active'));
+      document.querySelectorAll('.tab-pill-btn').forEach(el => el.classList.remove('active'));
+
+      const activeEl = document.getElementById(tab === 'repost' ? 'tabRepost' : (tab === 'comment' ? 'tabComment' : 'tabLike'));
+      const activeBtn = document.getElementById(tab === 'repost' ? 'btnTabRepost' : (tab === 'comment' ? 'btnTabComment' : 'btnTabLike'));
+      if (activeEl) activeEl.classList.add('active');
+      if (activeBtn) activeBtn.classList.add('active');
+
+      document.getElementById('viewRepost').style.display = tab === 'repost' ? 'block' : 'none';
+      document.getElementById('viewComment').style.display = tab === 'comment' ? 'block' : 'none';
+      document.getElementById('viewLike').style.display = tab === 'like' ? 'block' : 'none';
+
+      updateIndicator();
+    }
+
+    function toggleLike() {
+      isLiked = !isLiked;
+      const btn = document.getElementById('dockLikeBtn');
+      btn.classList.toggle('liked', isLiked);
+    }
+
+    function toggleFav() {
+      isFaved = !isFaved;
+      const btn = document.getElementById('dockFavBtn');
+      btn.classList.toggle('faved', isFaved);
+    }
+
+    function setSort(type) {
+      document.getElementById('sortHot').classList.toggle('active', type === 'hot');
+      document.getElementById('sortTime').classList.toggle('active', type === 'time');
+    }
+
+    function toggleTheme() {
+      const body = document.body;
+      const isDark = body.getAttribute('data-theme') === 'dark';
+      body.setAttribute('data-theme', isDark ? 'light' : 'dark');
+      document.getElementById('theme-icon').innerText = isDark ? '☀️' : '🌙';
+      document.getElementById('theme-label').innerText = isDark ? '明色' : '暗色';
+    }
+
+    window.onload = () => { updateIndicator(); };
+    setTimeout(updateIndicator, 50);
+  </script>
+</body>
+</html>

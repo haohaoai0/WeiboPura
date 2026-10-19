@@ -63,7 +63,7 @@ export struct WeiboVisitorBootstrap {
       .onControllerAttached(() => {
         const mobileUserAgent: string =
           'Mozilla/5.0 (Linux; HarmonyOS) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36';
-        this.controller.setCustomUserAgent(`${mobileUserAgent} WeiboPura/1.0`);
+        this.controller.setCustomUserAgent(`${mobileUserAgent} Fluo/1.0`);
       })
       .onPageEnd((event) => {
         this.readVisitorCookie();

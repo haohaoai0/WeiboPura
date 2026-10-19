@@ -24,6 +24,8 @@ import { HttpClient } from '../network/HttpClient';
 import { TiebaService, ThreadDetailResult } from '../service/TiebaService';
 import { FloorItem } from '../model/DataModel';
 import { Theme, Spacing, Radius, isDarkMode, MaterialManager, fs } from '../common/Theme';
+import { Haptic } from '../common/Haptic';
+import { writeWeiboImage } from '../common/WeiboImageWrite';
 
 /**
  * 图片流式补页一次触发的最大请求页数：楼层页里可能有整页无图（纯文字楼层），
@@ -35,6 +37,17 @@ const MAX_STREAM_FETCH_PER_TRIGGER: number = 2;
  * 无限翻页拖垮流量；到达上限即视作"到底"，行为与改造前一致（停在已补齐的图片上）。
  */
 const MAX_STREAM_PAGES: number = 20;
+
+function sanitizePreviewUrl(url: string): string {
+  const trimmed = url.trim();
+  if (trimmed.startsWith('//')) {
+    return `https:${trimmed}`;
+  }
+  if (trimmed.startsWith('http://')) {
+    return `https://${trimmed.substring(7)}`;
+  }
+  return trimmed;
+}
 
 @Entry
 @Component
@@ -63,9 +76,17 @@ struct ImagePreview {
   /** 本次浏览允许补到的最大页码（totalPage 与会话上限取小） */
   private maxStreamPage: number = 0;
 
+  onBackPress(): boolean {
+    this.closePreview();
+    return true;
+  }
+
   onPageShow(): void {
     this.fontSizeTick++;
   }
+  @State pictureVideos: Record<string, string> = {};
+  @State livePlayingIndex: number = -1;
+  private liveController: VideoController = new VideoController();
   @State saving: boolean = false;
   @State showControls: boolean = true;
   @State viewportWidth: number = 360;
@@ -97,17 +118,27 @@ struct ImagePreview {
     const routeUrls: Object | undefined = params ? params.urls : undefined;
     if (Array.isArray(routeUrls)) {
       this.urls = (routeUrls as Object[])
-        .map((item: Object) => `${item}`)
+        .map((item: Object) => sanitizePreviewUrl(`${item}`))
         .filter((item: string) => item.length > 0);
     } else if (typeof routeUrls === 'string') {
       this.urls = routeUrls.split(',')
         .filter((item: string) => item.length > 0)
-        .map((item: string) => decodeURIComponent(item));
+        .map((item: string) => sanitizePreviewUrl(decodeURIComponent(item)));
     } else if (params && typeof params.url === 'string') {
-      this.urls = [decodeURIComponent(`${params.url}`)];
+      this.urls = [sanitizePreviewUrl(decodeURIComponent(`${params.url}`))];
     }
     if (params && params.index !== undefined) {
-      this.currentIndex = Number(params.index) || 0;
+      this.currentIndex = Math.max(0, Math.min(Math.max(0, this.urls.length - 1), Math.floor(Number(params.index) || 0)));
+    }
+    const tracks: Object | undefined = params?.pictureVideos;
+    if (tracks !== undefined && typeof tracks === 'object' && !Array.isArray(tracks)) {
+      const candidates: Record<string, string> = tracks as Record<string, string>;
+      const valid: Record<string, string> = {};
+      for (const url of this.urls) {
+        const video: string = candidates[url] ?? '';
+        if (typeof video === 'string' && /^https?:\/\//i.test(video)) { valid[url] = video; }
+      }
+      this.pictureVideos = valid;
     }
     this.isDark = isDarkMode();
     // 流式补页上下文：只有从帖子详情页带上下文进来才有补页能力，其它调用点（单图预览等）保持原行为
@@ -161,6 +192,7 @@ struct ImagePreview {
   }
 
   aboutToDisappear(): void {
+    this.stopLivePhoto();
     this.restoreStatusBar();
   }
 
@@ -180,6 +212,21 @@ struct ImagePreview {
     }
   }
 
+  private pressImage(index: number): void {
+    if (index !== this.currentIndex) { return; }
+    if ((this.pictureVideos[this.urls[index]] ?? '').length === 0) {
+      this.showSaveControls();
+      return;
+    }
+    this.livePlayingIndex = index;
+    Haptic.light();
+  }
+
+  private stopLivePhoto(): void {
+    try { this.liveController.pause(); } catch (_error) {}
+    this.livePlayingIndex = -1;
+  }
+
   build() {
     Stack() {
       if (this.urls.length > 0) {
@@ -194,6 +241,18 @@ struct ImagePreview {
                 .objectFit(ImageFit.Contain)
                 .scale({ x: this.getScale(idx), y: this.getScale(idx) })
                 .translate({ x: this.getPanX(idx), y: this.getPanY(idx) })
+
+              if (idx === this.currentIndex && this.livePlayingIndex === idx) {
+                Video({ src: this.pictureVideos[url], previewUri: url, controller: this.liveController })
+                  .width('100%').height('100%').controls(false).autoPlay(true).muted(true).loop(true)
+                  .objectFit(ImageFit.Contain).hitTestBehavior(HitTestMode.None)
+                  .scale({ x: this.getScale(idx), y: this.getScale(idx) })
+                  .translate({ x: this.getPanX(idx), y: this.getPanY(idx) })
+                  .onError((): void => {
+                    this.stopLivePhoto();
+                    this.getUIContext().getPromptAction().showToast({ message: '实况视频加载失败，请检查网络后重试' });
+                  })
+              }
 
               // 透明手势层：只切换手势集合，不触碰图片节点生命周期
               if (idx === this.currentIndex && this.getScale(idx) > 1.05) {
@@ -215,7 +274,9 @@ struct ImagePreview {
                         .onActionEnd((event: GestureEvent) => { this.finishPan(event); }),
                       TapGesture({ count: 1 }).onAction(() => { this.showControls = !this.showControls; }),
                       LongPressGesture({ fingers: 1, repeat: false, duration: 350 })
-                        .onAction((): void => { this.showSaveControls(); })
+                        .onAction((): void => { this.pressImage(idx); })
+                        .onActionEnd((): void => { this.stopLivePhoto(); })
+                        .onActionCancel((): void => { this.stopLivePhoto(); })
                     )
                   )
               } else {
@@ -237,7 +298,9 @@ struct ImagePreview {
                         this.showControls = !this.showControls;
                       }),
                       LongPressGesture({ fingers: 1, repeat: false, duration: 350 })
-                        .onAction((): void => { this.showSaveControls(); })
+                        .onAction((): void => { this.pressImage(idx); })
+                        .onActionEnd((): void => { this.stopLivePhoto(); })
+                        .onActionCancel((): void => { this.stopLivePhoto(); })
                     )
                   )
               }
@@ -264,6 +327,7 @@ struct ImagePreview {
         .curve(Curve.EaseOut)
         .duration(220)
         .onChange((index: number) => {
+          this.stopLivePhoto();
           this.currentIndex = index;
           this.resetZoom();
           // 流式补页触发：距已加载图片末尾还剩 3 张时开始拉下一页，尽量让用户滑到头时新图已就位
@@ -273,6 +337,7 @@ struct ImagePreview {
         })
         .width('100%')
         .height('100%')
+        .scale({ x: this.previewScale, y: this.previewScale })
       }
 
       if (this.showControls) {
@@ -294,6 +359,12 @@ struct ImagePreview {
             .padding({ left: 12, right: 12, top: 4, bottom: 4 })
 
             Blank()
+            if ((this.pictureVideos[this.urls[this.currentIndex]] ?? '').length > 0) {
+              Text(this.livePlayingIndex === this.currentIndex ? '实况播放中' : '长按播放实况')
+                .fontSize(fs(13, this.fontScale)).fontColor(Color.White)
+                .padding(8).backgroundColor('#99000000').borderRadius(16)
+                .hitTestBehavior(HitTestMode.None)
+            }
           }
           .width('100%')
           .padding({ left: Spacing.lg, right: Spacing.lg, top: 12, bottom: 10 })
@@ -373,7 +444,6 @@ struct ImagePreview {
     .height('100%')
     .backgroundColor(Color.Black)
     .opacity(this.previewOpacity)
-    .scale({ x: this.previewScale, y: this.previewScale })
     .renderGroup(true)
   }
 
@@ -386,13 +456,14 @@ struct ImagePreview {
       return;
     }
     this.isClosing = true;
-    this.getUIContext().animateTo({ duration: 160, curve: Curve.EaseIn }, (): void => {
+    this.restoreStatusBar();
+    this.getUIContext().animateTo({ duration: 180, curve: Curve.EaseOut }, (): void => {
       this.previewOpacity = 0;
-      this.previewScale = 0.98;
+      this.previewScale = 0.96;
     });
     setTimeout((): void => {
       this.getUIContext().getRouter().back();
-    }, 160);
+    }, 180);
   }
 
   /**
@@ -545,7 +616,8 @@ struct ImagePreview {
         }
         const fresh: string[] = this.extractStreamImages(result.floors ?? []);
         if (fresh.length > 0) {
-          this.urls = [...this.urls, ...fresh];
+          const cleanFresh: string[] = fresh.map((u: string) => sanitizePreviewUrl(u));
+          this.urls = [...this.urls, ...cleanFresh];
           break;
         }
       }
@@ -592,23 +664,32 @@ struct ImagePreview {
     let createdUri: string = '';
     try {
       const helper = photoAccessHelper.getPhotoAccessHelper(this.context);
-      // SaveButton 的临时授权窗口很短（约 10 秒），因此先在窗口内建好媒体库资源并拿到 fd，
-      // 之后的网络下载与写文件不再受该窗口限制。
-      createdUri = await helper.createAsset(photoAccessHelper.PhotoType.IMAGE, 'jpg');
+      const imageUrl: string = this.urls[this.currentIndex];
+      const cleanUrl: string = (imageUrl ?? '').toLowerCase();
+      let ext: string = 'jpg';
+      if (cleanUrl.includes('.gif')) {
+        ext = 'gif';
+      } else if (cleanUrl.includes('.png')) {
+        ext = 'png';
+      }
+      createdUri = await helper.createAsset(photoAccessHelper.PhotoType.IMAGE, ext);
       const dest = await fileIo.open(createdUri, fileIo.OpenMode.READ_WRITE | fileIo.OpenMode.CREATE);
       try {
-        const imageUrl: string = this.urls[this.currentIndex];
-        const bytes: ArrayBuffer = await HttpClient.getBinary(imageUrl, {
+        const isWeiboImage: boolean = imageUrl.includes('sinaimg.cn') || imageUrl.includes('weibo.com') || imageUrl.includes('weibo.cn');
+        const referer: string = isWeiboImage ? 'https://weibo.com/' : 'https://tieba.baidu.com/';
+        const headers: Record<string, string> = {
           'Accept': 'image/avif,image/webp,image/apng,image/*,*/*;q=0.8',
-          'Referer': 'https://tieba.baidu.com/'
-        });
+          'Referer': referer
+        };
+        const bytes: ArrayBuffer = await HttpClient.getBinary(imageUrl, headers);
         if (bytes.byteLength === 0) {
           throw new Error('图片内容为空');
         }
-        await fileIo.write(dest.fd, bytes);
+        await writeWeiboImage(dest.fd, bytes);
       } finally {
         await fileIo.close(dest);
       }
+      Haptic.light();
       this.getUIContext().getPromptAction().showToast({ message: '已保存到图库' });
     } catch (e) {
       // 写入失败时清掉刚建好的空资源，避免图库里残留空白图片

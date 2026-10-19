@@ -1,6 +1,8 @@
+import { WeiboTabTouchTracker } from '../common/WeiboTabSwipe';
 import { common, ConfigurationConstant } from '@kit.AbilityKit';
 import { curves, LengthMetrics, SymbolGlyphModifier } from '@kit.ArkUI';
 import {
+  HdsAnimationMode,
   HdsNavigation,
   HdsNavigationTitleMode,
   HdsTabs,
@@ -13,18 +15,26 @@ import {
   TitleBarStyleOptions
 } from '@kit.UIDesignKit';
 import { CacheManager } from '../cache/CacheManager';
+import { ImageCache } from '../cache/ImageCache';
 import { ImmBlur, ImmMaterial, MaterialManager, Radius, Spacing, Theme, fs, initDarkMode, isDarkMode } from '../common/Theme';
 import { UsageHabitsManager } from '../service/UsageHabitsManager';
 import { WeiboAuthManager } from '../service/WeiboAuthManager';
 import { AppSettingsStore, DEFAULT_HOME_TAB_MATERIAL_LEVEL } from '../service/AppSettingsStore';
+import { createWeiboDockStyle } from '../common/WeiboDockStyle';
 import { WeiboService } from '../service/WeiboService';
-import { WeiboPost, WeiboUser } from '../model/WeiboModel';
+import { WeiboDetailTab, WeiboHotTopic, WeiboNotification, WeiboPost, WeiboUser } from '../model/WeiboModel';
 import { WeiboHomeTab, WeiboTimelineMode } from './WeiboHomeTab';
 import { WeiboPostDetailBuilder, WeiboPostDetailRouteParam } from './WeiboPostDetail';
 import { WeiboUserProfileBuilder, WeiboUserProfileRouteParam } from './WeiboUserProfile';
+import { WeiboSearchResultBuilder, WeiboSearchResultRouteParam } from './WeiboSearchResult';
+import { WeiboBrowserBuilder } from './WeiboBrowser';
 import { WeiboHotSearch } from './WeiboHotSearch';
 import { WeiboSearch } from './WeiboSearch';
+import { WeiboComposeDialog } from '../components/WeiboComposeDialog';
 import { WeiboVisitorBootstrap } from '../components/WeiboVisitorBootstrap';
+import { WeiboRichTextView } from '../components/WeiboRichTextView';
+import { WeiboReadingPositionManager } from '../service/WeiboReadingPositionManager';
+import { Haptic } from '../common/Haptic';
 import {
   syncWeiboSplitNavigation,
   WEIBO_BREAKPOINT_KEY,
@@ -32,17 +42,18 @@ import {
   WeiboResponsiveLayout
 } from '../common/WeiboNavigationLayout';
 
-const PRIVACY_KEY: string = 'weibopura_privacy_agreed_v1';
+const PRIVACY_KEY: string = 'fluo_privacy_agreed_v1';
+const LEGACY_PRIVACY_KEY: string = 'weibopura_privacy_agreed_v1';
 const HDS_TAB_BAR_HEIGHT: number = 56;
 const HOME_TAB_DOUBLE_TAP_WINDOW_MS: number = 360;
 
-/** Mirrors TiebaPura's five-slot root navigation; every slot is backed by Weibo data. */
+/** Fluo four-slot root navigation; every slot is backed by Weibo data. */
 enum WeiboTab {
   Home = 0,
   Discover = 1,
-  Search = 2,
-  Messages = 3,
-  Mine = 4,
+  Messages = 2,
+  Mine = 3,
+  Search = 4,
 }
 
 type TabAnimationDirection = 'left' | 'right';
@@ -64,6 +75,17 @@ struct Index {
   @State messagesTranslateX: number = 0;
   @State messagesOpacity: number = 1;
   @State messagesAnimating: boolean = false;
+  @State messageType: 'all' | 'mention' | 'comment' | 'like' = 'all';
+  @State notifications: WeiboNotification[] = [];
+  @State messagesLoading: boolean = false;
+  @State messagesLoaded: boolean = false;
+  @State messagesLoadingMore: boolean = false;
+  @State messagesRefreshing: boolean = false;
+  @State messagePage: number = 0;
+  @State hasMoreMessages: boolean = true;
+  @State messageError: string = '';
+  @State readNotificationIds: string[] = [];
+  private messageEpoch: number = 0;
   @State mineTranslateX: number = 0;
   @State mineOpacity: number = 1;
   @State mineAnimating: boolean = false;
@@ -73,6 +95,9 @@ struct Index {
   @State isDark: boolean = isDarkMode();
   @State weiboReady: boolean = false;
   @State cookieConfigured: boolean = false;
+  @State sessionResetting: boolean = false;
+  @State logoutRetryRequired: boolean = false;
+  private accountEpoch: number = 0;
   @Provide('weiboNavStack') weiboNavStack: NavPathStack = new NavPathStack();
   /** The source/destination layout follows the live window width, like HarmonyX. */
   @StorageLink(WEIBO_BREAKPOINT_KEY) @Watch('onBreakpointChange')
@@ -85,7 +110,7 @@ struct Index {
   @StorageLink('fontScale') fontScale: number = 1.0;
   @StorageLink('darkTick') @Watch('onDarkTick') darkTick: number = 0;
   @StorageLink('weiboAuthTick') @Watch('onWeiboAuthTick') weiboAuthTick: number = 0;
-  @StorageLink('appAccentColor') @Watch('onAccentChanged') accentColor: string = '#E6162D';
+  @StorageLink('appAccentColor') @Watch('onAccentChanged') accentColor: string = '#4EAA78';
   @StorageLink('appAccentTick') @Watch('onAccentTick') appAccentTick: number = 0;
   @StorageLink('homeTabMaterialLevel') @Watch('onHomeTabMaterialChanged')
   homeTabMaterialLevel: number = DEFAULT_HOME_TAB_MATERIAL_LEVEL;
@@ -101,6 +126,10 @@ struct Index {
   @State homeFeedRebuildVersion: number = 0;
   private lastHomeTabTapAt: number = 0;
   @State hdsTabsModifier: HdsTabsModifier = new HdsTabsModifier();
+  private homeRecommendScroller: Scroller = new Scroller();
+  private homeFollowingScroller: Scroller = new Scroller();
+  @State homeRefreshTrigger: number = 0;
+  @State isTabBarHidden: boolean = false;
   private discoverScroller: Scroller = new Scroller();
   private searchScroller: Scroller = new Scroller();
   private messagesScroller: Scroller = new Scroller();
@@ -121,7 +150,12 @@ struct Index {
     initDarkMode(systemDark);
     const cache: CacheManager = CacheManager.getInstance();
     await cache.init(this.context);
-    this.privacyAccepted = (await cache.get(PRIVACY_KEY)) === '1';
+    const agreed = await cache.get(PRIVACY_KEY);
+    const legacyAgreed = agreed ? null : await cache.get(LEGACY_PRIVACY_KEY);
+    this.privacyAccepted = agreed === '1' || legacyAgreed === '1';
+    if (this.privacyAccepted && agreed !== '1') {
+      await cache.put(PRIVACY_KEY, '1');
+    }
     this.privacyReady = true;
     if (this.privacyAccepted) {
       await this.initAfterPrivacyConsent();
@@ -182,10 +216,17 @@ struct Index {
     this.updateNavigationMode();
   }
 
-  private openPostDetail(post: WeiboPost): void {
+  private openPostDetail(post: WeiboPost, tab?: WeiboDetailTab, autoFocusComment?: boolean, targetCommentId?: string): void {
+    WeiboReadingPositionManager.getInstance().flush().catch((): void => {});
     WeiboService.getInstance().rememberPost(post);
     WeiboService.getInstance().prefetchComments(post.id);
-    const param: WeiboPostDetailRouteParam = { postId: post.id };
+    const param: WeiboPostDetailRouteParam = {
+      postId: post.id,
+      post: post,
+      initialTab: tab,
+      autoFocusComment: autoFocusComment,
+      targetCommentId: targetCommentId
+    };
     this.openContentDestination();
     this.weiboNavStack.pushPath({ name: 'WeiboPostDetail', param: param });
   }
@@ -196,11 +237,25 @@ struct Index {
     this.weiboNavStack.pushPath({ name: 'WeiboUserProfile', param: param });
   }
 
+  private openSearchTopic(keyword: string): void {
+    const trimmed: string = keyword.trim();
+    if (trimmed.length === 0) {
+      return;
+    }
+    this.weiboSearchText = trimmed;
+    AppStorage.setOrCreate<string>('weiboSearchQuery', trimmed);
+    const param: WeiboSearchResultRouteParam = { query: trimmed };
+    this.openContentDestination();
+    this.weiboNavStack.pushPath({ name: 'WeiboSearchResult', param: param });
+  }
+
   private onHomeTabMaterialChanged(): void {
     this.configureHdsTabs();
   }
 
   aboutToDisappear(): void {
+    this.hdsTabsController.unbindScroller(this.homeRecommendScroller);
+    this.hdsTabsController.unbindScroller(this.homeFollowingScroller);
     this.hdsTabsController.unbindScroller(this.discoverScroller);
     this.hdsTabsController.unbindScroller(this.searchScroller);
     this.hdsTabsController.unbindScroller(this.messagesScroller);
@@ -208,7 +263,19 @@ struct Index {
   }
 
   private onWeiboAuthTick(): void {
+    this.accountEpoch++;
+    this.accountProfile = null;
+    this.accountLoading = false;
+    this.messageEpoch++;
+    this.notifications = [];
+    this.messagesLoaded = false;
+    this.messagesLoading = false;
+    this.messagesLoadingMore = false;
+    this.messagesRefreshing = false;
+    this.messagePage = 0;
+    this.messageError = '';
     this.refreshWeiboAccount();
+    if (this.selectedTab === WeiboTab.Messages && this.cookieConfigured) { this.loadNotifications(true); }
     if (this.selectedTab === WeiboTab.Mine) {
       this.loadAccountProfile();
     }
@@ -226,23 +293,96 @@ struct Index {
       }
       return;
     }
+    const epoch: number = ++this.accountEpoch;
+    const revision: number = WeiboAuthManager.getInstance().getSessionRevision();
     this.accountLoading = true;
     try {
-      this.accountProfile = await WeiboService.getInstance().fetchCurrentUserProfile();
+      const profile: WeiboUser = await WeiboService.getInstance().fetchCurrentUserProfile();
+      if (epoch === this.accountEpoch && revision === WeiboAuthManager.getInstance().getSessionRevision()) {
+        this.accountProfile = profile;
+      }
     } catch (error) {
-      this.accountProfile = null;
+      if (epoch === this.accountEpoch) { this.accountProfile = null; }
     } finally {
-      this.accountLoading = false;
+      if (epoch === this.accountEpoch) { this.accountLoading = false; }
+    }
+  }
+
+  private setTabBarVisible(visible: boolean): void {
+    if (this.isTabBarHidden === !visible) {
+      return;
+    }
+    this.isTabBarHidden = !visible;
+    const mode: HdsAnimationMode = HdsAnimationMode.SCROLL_ANIMATION;
+    if (visible) {
+      this.hdsTabsController.applyShowAnimation(mode);
+    } else {
+      this.hdsTabsController.applyHideAnimation(mode);
+    }
+  }
+
+  private switchHomeMode(mode: WeiboTimelineMode): void {
+    if (this.homeMode === mode) {
+      return;
+    }
+    WeiboReadingPositionManager.getInstance().flush().catch((): void => {});
+    this.homeMode = mode;
+    this.hdsTabsController.unbindScroller(this.homeRecommendScroller);
+    this.hdsTabsController.unbindScroller(this.homeFollowingScroller);
+    const activeScroller: Scroller = mode === WeiboTimelineMode.Following
+      ? this.homeFollowingScroller : this.homeRecommendScroller;
+    this.hdsTabsController.bindScroller(WeiboTab.Home, activeScroller);
+    if (this.isTabBarHidden) {
+      this.setTabBarVisible(true);
+    }
+  }
+
+  @State tabDragOffset: number = 0;
+  @State tabDragging: boolean = false;
+  private tabTouchTracker: WeiboTabTouchTracker = new WeiboTabTouchTracker('home');
+  private titleTouchTracker: WeiboTabTouchTracker = new WeiboTabTouchTracker('home-title');
+
+  private resetTabDrag(): void {
+    this.tabDragging = false;
+    this.tabDragOffset = 0;
+  }
+
+  private onHomeTabPanEnd(event: GestureEvent, tracker: WeiboTabTouchTracker): void {
+    const direction: number = tracker.finish(event);
+    this.resetTabDrag();
+    if (this.selectedTab !== WeiboTab.Home || direction === 0) { return; }
+    if (direction === 1 && this.homeMode === WeiboTimelineMode.Following) {
+      Haptic.light();
+      this.switchHomeMode(WeiboTimelineMode.Recommend);
+    } else if (direction === -1 && this.homeMode === WeiboTimelineMode.Recommend) {
+      Haptic.light();
+      this.switchHomeMode(WeiboTimelineMode.Following);
     }
   }
 
   /** Programmatic selection is shared by the title-bar search shortcut and HdsTabs. */
   private switchTab(index: number): void {
+    if (this.isTabBarHidden) {
+      this.setTabBarVisible(true);
+    }
     if (index === this.selectedTab) {
       return;
     }
+    if (this.selectedTab === WeiboTab.Home) {
+      WeiboReadingPositionManager.getInstance().flush().catch((): void => {});
+    }
     this.selectedTab = index;
-    if (index === WeiboTab.Mine) {
+    try {
+      this.hdsTabsController.changeIndex(index);
+    } catch (_e) {}
+    if (index === WeiboTab.Discover) {
+      this.page2Enter++;
+    } else if (index === WeiboTab.Messages) {
+      this.refreshWeiboAccount();
+      if (this.cookieConfigured && (!this.messagesLoaded || this.notifications.length === 0)) {
+        this.loadNotifications(true);
+      }
+    } else if (index === WeiboTab.Mine) {
       this.refreshWeiboAccount();
       this.loadAccountProfile();
     }
@@ -266,12 +406,12 @@ struct Index {
       this.page1Enter++;
     } else if (index === WeiboTab.Discover) {
       this.page2Enter++;
-    } else if (index === WeiboTab.Search) {
-      this.page3Enter++;
     } else if (index === WeiboTab.Messages) {
       this.page4Enter++;
     } else if (index === WeiboTab.Mine) {
       this.page5Enter++;
+    } else if (index === WeiboTab.Search) {
+      this.page3Enter++;
     }
   }
 
@@ -280,12 +420,12 @@ struct Index {
       this.page1Exit++;
     } else if (index === WeiboTab.Discover) {
       this.page2Exit++;
-    } else if (index === WeiboTab.Search) {
-      this.page3Exit++;
     } else if (index === WeiboTab.Messages) {
       this.page4Exit++;
     } else if (index === WeiboTab.Mine) {
       this.page5Exit++;
+    } else if (index === WeiboTab.Search) {
+      this.page3Exit++;
     }
   }
 
@@ -298,6 +438,9 @@ struct Index {
     if (this.page4Enter > 0) {
       this.messagesAnimating = false;
       this.playMessagesEnterAnimation(this.animationDirection());
+      if (this.cookieConfigured && !this.messagesLoaded) {
+        this.loadNotifications();
+      }
     }
   }
 
@@ -386,20 +529,20 @@ struct Index {
     setTimeout((): void => { this.mineAnimating = false; }, 600);
   }
 
-  /** Rebuild only when the already-selected Home tab receives a double tap. */
+  /** Tap on already-selected Home tab smoothly refreshes the feed without white screen. */
   private onTabBarClick(index: number): void {
     if (index !== WeiboTab.Home) {
-      this.lastHomeTabTapAt = 0;
+      if (this.isTabBarHidden) {
+        this.setTabBarVisible(true);
+      }
       return;
     }
-    const now: number = Date.now();
-    const withinDoubleTapWindow: boolean = now - this.lastHomeTabTapAt <= HOME_TAB_DOUBLE_TAP_WINDOW_MS;
-    if (this.selectedTab === WeiboTab.Home && withinDoubleTapWindow) {
-      this.homeFeedRebuildVersion++;
-      this.lastHomeTabTapAt = 0;
-      return;
+    if (this.isTabBarHidden) {
+      this.setTabBarVisible(true);
     }
-    this.lastHomeTabTapAt = now;
+    if (this.selectedTab === WeiboTab.Home) {
+      this.homeRefreshTrigger++;
+    }
   }
 
   private configureHdsTabs(): void {
@@ -408,29 +551,8 @@ struct Index {
       .vertical(false)
       .barPosition(BarPosition.End)
       .barHeight(HDS_TAB_BAR_HEIGHT)
-      .barFloatingStyle({
-        adaptToHandedness: true,
-        barBottomMargin: 30,
-        lightColor: this.accentColor,
-        systemMaterialEffect: {
-          materialType: hdsMaterial.MaterialType.IMMERSIVE,
-          materialLevel: this.resolveHomeTabMaterialLevel()
-        }
-      });
+      .barFloatingStyle(createWeiboDockStyle(this.homeTabMaterialLevel, this.accentColor));
     this.hdsTabsModifier = modifier;
-  }
-
-  private resolveHomeTabMaterialLevel(): hdsMaterial.MaterialLevel {
-    if (this.homeTabMaterialLevel === 0) {
-      return hdsMaterial.MaterialLevel.EXQUISITE;
-    }
-    if (this.homeTabMaterialLevel === 1) {
-      return hdsMaterial.MaterialLevel.GENTLE;
-    }
-    if (this.homeTabMaterialLevel === 2) {
-      return hdsMaterial.MaterialLevel.SMOOTH;
-    }
-    return hdsMaterial.MaterialLevel.ADAPTIVE;
   }
 
   /** Match PaperTalk: convert the current window's raw top avoid area at layout time. */
@@ -465,7 +587,7 @@ struct Index {
   /** Native HDS title content lets the framework place text against the real safe area. */
   private currentHdsTitle(): Resource {
     if (this.selectedTab === WeiboTab.Discover) {
-      return $r('app.string.weibo_hot_title');
+      return $r('app.string.weibo_tab_discover');
     }
     if (this.selectedTab === WeiboTab.Search) {
       return $r('app.string.weibo_search_title');
@@ -501,7 +623,10 @@ struct Index {
         }
       },
       scrollEffectStyle: {
-        backgroundStyle: { backgroundColor: Theme.bg(this.isDark) },
+        // 悬浮顶栏必须是【透明浮层】——滚动态背景与 originalStyle 一致用透明系统色，
+        // 观感交给 systemMaterialEffect 的 IMMERSIVE 材质 + IMMERSIVE_GRADIENT_BLUR。
+        // 原先是实色 Theme.bg(isDark)：一滚动就在顶部盖出约 topInset(108vp) 的实心色块。
+        backgroundStyle: { backgroundColor: $r('sys.color.ohos_id_color_background_transparent') },
         contentStyle: {
           titleStyle: {
             mainTitleColor: $r('sys.color.font_primary'),
@@ -520,8 +645,10 @@ struct Index {
   }
 
   private bindBuiltInTabScrollers(): void {
+    const homeScroller: Scroller = this.homeMode === WeiboTimelineMode.Following
+      ? this.homeFollowingScroller : this.homeRecommendScroller;
+    this.hdsTabsController.bindScroller(WeiboTab.Home, homeScroller);
     this.hdsTabsController.bindScroller(WeiboTab.Discover, this.discoverScroller);
-    this.hdsTabsController.bindScroller(WeiboTab.Search, this.searchScroller);
     this.hdsTabsController.bindScroller(WeiboTab.Messages, this.messagesScroller);
     this.hdsTabsController.bindScroller(WeiboTab.Mine, this.mineScroller);
   }
@@ -531,7 +658,7 @@ struct Index {
     Column({ space: Spacing.lg }) {
       SymbolGlyph($r('sys.symbol.lock_shield'))
         .fontSize(48)
-        .fontColor([$r('sys.color.icon_emphasize')])
+        .fontColor([Theme.brand()])
       Text($r('app.string.weibo_privacy_title'))
         .fontSize(fs(22, this.fontScale))
         .fontWeight(FontWeight.Bold)
@@ -586,7 +713,7 @@ struct Index {
         .shadow(Theme.segGlassShadow(this.isDark, this.homeMode === WeiboTimelineMode.Recommend))
         .borderRadius(Radius.full)
         .padding({ left: 22, right: 22, top: 9, bottom: 9 })
-        .onClick(() => { this.homeMode = WeiboTimelineMode.Recommend; })
+        .onClick(() => { this.switchHomeMode(WeiboTimelineMode.Recommend); })
       Text($r('app.string.weibo_following_title'))
         .fontSize(fs(16, this.fontScale))
         .fontWeight(this.homeMode === WeiboTimelineMode.Following ? FontWeight.Bold : FontWeight.Medium)
@@ -598,7 +725,7 @@ struct Index {
         .shadow(Theme.segGlassShadow(this.isDark, this.homeMode === WeiboTimelineMode.Following))
         .borderRadius(Radius.full)
         .padding({ left: 22, right: 22, top: 9, bottom: 9 })
-        .onClick(() => { this.homeMode = WeiboTimelineMode.Following; })
+        .onClick(() => { this.switchHomeMode(WeiboTimelineMode.Following); })
       Blank()
       Button() {
         SymbolGlyph($r('sys.symbol.magnifyingglass'))
@@ -624,82 +751,218 @@ struct Index {
 
   @Builder
   HomeFeedContent() {
-    ForEach([this.homeFeedRebuildVersion], (_version: number): void => {
-      Stack({ alignContent: Alignment.TopStart }) {
-        Stack() {
-          WeiboHomeTab({
-            mode: WeiboTimelineMode.Recommend,
-            showHeader: false,
-            topInset: 108,
-            bottomInset: 128,
-            animationTrigger: this.page1Enter,
-            exitTrigger: this.page1Exit,
-            onOpenPost: (post: WeiboPost): void => this.openPostDetail(post),
-            onOpenUserProfile: (userId: string, userName: string): void => this.openUserProfile(userId, userName)
-          })
-        }
-        .width('100%')
-        .height('100%')
-        .visibility(this.homeMode === WeiboTimelineMode.Recommend ? Visibility.Visible : Visibility.Hidden)
-        Stack() {
-          WeiboHomeTab({
-            mode: WeiboTimelineMode.Following,
-            showHeader: false,
-            topInset: 108,
-            bottomInset: 128,
-            animationTrigger: this.page1Enter,
-            exitTrigger: this.page1Exit,
-            onOpenPost: (post: WeiboPost): void => this.openPostDetail(post),
-            onOpenUserProfile: (userId: string, userName: string): void => this.openUserProfile(userId, userName)
-          })
-        }
-        .width('100%')
-        .height('100%')
-        .visibility(this.homeMode === WeiboTimelineMode.Following ? Visibility.Visible : Visibility.Hidden)
+    Stack({ alignContent: Alignment.TopStart }) {
+      Stack() {
+        WeiboHomeTab({
+          mode: WeiboTimelineMode.Recommend,
+          showHeader: false,
+          pageScroller: this.homeRecommendScroller,
+          refreshTrigger: this.homeRefreshTrigger,
+          topInset: 108,
+          bottomInset: 128,
+          animationTrigger: this.page1Enter,
+          exitTrigger: this.page1Exit,
+          onScrollDirection: (visible: boolean): void => this.setTabBarVisible(visible),
+          onOpenPost: (post: WeiboPost, tab?: WeiboDetailTab, autoFocusComment?: boolean, targetCommentId?: string): void => this.openPostDetail(post, tab, autoFocusComment, targetCommentId),
+          onOpenUserProfile: (userId: string, userName: string): void => this.openUserProfile(userId, userName)
+        })
       }
       .width('100%')
       .height('100%')
-      .backgroundColor(Theme.bg(this.isDark))
-    }, (version: number): string => version.toString())
+      .visibility(this.homeMode === WeiboTimelineMode.Recommend ? Visibility.Visible : Visibility.Hidden)
+      .translate({ x: this.tabDragOffset })
+      .animation({ duration: this.tabDragging ? 0 : 180, curve: Curve.EaseOut })
+      Stack() {
+        WeiboHomeTab({
+          mode: WeiboTimelineMode.Following,
+          showHeader: false,
+          pageScroller: this.homeFollowingScroller,
+          refreshTrigger: this.homeRefreshTrigger,
+          topInset: 108,
+          bottomInset: 128,
+          animationTrigger: this.page1Enter,
+          exitTrigger: this.page1Exit,
+          onScrollDirection: (visible: boolean): void => this.setTabBarVisible(visible),
+          onOpenPost: (post: WeiboPost, tab?: WeiboDetailTab, autoFocusComment?: boolean, targetCommentId?: string): void => this.openPostDetail(post, tab, autoFocusComment, targetCommentId),
+          onOpenUserProfile: (userId: string, userName: string): void => this.openUserProfile(userId, userName)
+        })
+      }
+      .width('100%')
+      .height('100%')
+      .visibility(this.homeMode === WeiboTimelineMode.Following ? Visibility.Visible : Visibility.Hidden)
+      .translate({ x: this.tabDragOffset })
+      .animation({ duration: this.tabDragging ? 0 : 180, curve: Curve.EaseOut })
+    }
+    .width('100%')
+    .height('100%')
+    .backgroundColor(Theme.bg(this.isDark))
+    .clip(true)
+    .onTouch((event: TouchEvent): void => {
+      this.tabTouchTracker.track(event);
+      if (event.type === TouchType.Cancel) { this.resetTabDrag(); }
+    })
+    .gesture(
+      PanGesture({ fingers: 1, direction: PanDirection.Horizontal, distance: 12 })
+        .tag('weibo-tab-swipe')
+        .onActionStart((): void => {
+          this.tabTouchTracker.claim();
+          this.tabDragging = true;
+        })
+        .onActionUpdate((event: GestureEvent): void => {
+          this.tabDragOffset = this.tabTouchTracker.update(event, this.homeMode === WeiboTimelineMode.Recommend, this.homeMode === WeiboTimelineMode.Following);
+        })
+        .onActionEnd((event: GestureEvent): void => { this.onHomeTabPanEnd(event, this.tabTouchTracker); })
+        .onActionCancel((): void => {
+          this.tabTouchTracker.cancel();
+          this.resetTabDrag();
+        })
+    )
+    .onGestureJudgeBegin((info: GestureInfo, event: BaseGestureEvent): GestureJudgeResult => {
+      return this.tabTouchTracker.judge(info, event, this.selectedTab === WeiboTab.Home);
+    })
+  }
+
+  private composeController: CustomDialogController | null = null;
+
+  private openComposeDialog(): void {
+    if (!WeiboAuthManager.getInstance().hasCookie()) {
+      this.getUIContext().getPromptAction().showToast({ message: '请先在“我的”页面登录微博' });
+      return;
+    }
+    this.composeController = new CustomDialogController({
+      builder: WeiboComposeDialog({
+        mode: 'publish',
+        onSuccess: (): void => {
+          this.homeRefreshTrigger++;
+        }
+      }),
+      alignment: DialogAlignment.Bottom,
+      customStyle: true,
+      autoCancel: false,
+      offset: { dx: 0, dy: -20 }
+    });
+    this.composeController.open();
   }
 
   /** Reference project's official Navigation title slot: interactive material provides press glow. */
   @Builder
   HomeTitleBar() {
-    Row({ space: 16 }) {
-      Text($r('app.string.weibo_recommend_title'))
-        .fontSize(fs(16, this.fontScale))
-        .fontWeight(this.homeMode === WeiboTimelineMode.Recommend ? FontWeight.Bold : FontWeight.Medium)
-        .fontColor(this.homeMode === WeiboTimelineMode.Recommend ? this.accentColor : $r('sys.color.font_primary'))
-        .systemMaterial(ImmMaterial.seg(this.homeMode === WeiboTimelineMode.Recommend))
-        .borderRadius(Radius.full)
-        .padding({ left: 22, right: 22, top: 9, bottom: 9 })
-        .onClick(() => { this.homeMode = WeiboTimelineMode.Recommend; })
-      Text($r('app.string.weibo_following_title'))
-        .fontSize(fs(16, this.fontScale))
-        .fontWeight(this.homeMode === WeiboTimelineMode.Following ? FontWeight.Bold : FontWeight.Medium)
-        .fontColor(this.homeMode === WeiboTimelineMode.Following ? this.accentColor : $r('sys.color.font_primary'))
-        .systemMaterial(ImmMaterial.seg(this.homeMode === WeiboTimelineMode.Following))
-        .borderRadius(Radius.full)
-        .padding({ left: 22, right: 22, top: 9, bottom: 9 })
-        .onClick(() => { this.homeMode = WeiboTimelineMode.Following; })
-      Blank()
-      Button() {
-        SymbolGlyph($r('sys.symbol.magnifyingglass'))
-          .fontColor([$r('sys.color.icon_primary')])
-          .fontSize(fs(20, this.fontScale))
+    Row() {
+      // 1. 左侧头像 (36vp 圆形)
+      Stack() {
+        if (this.accountProfile !== null && this.accountProfile.avatarUrl.length > 0) {
+          Image(this.accountProfile.avatarUrl)
+            .width(36)
+            .height(36)
+            .borderRadius(18)
+            .objectFit(ImageFit.Cover)
+        } else {
+          SymbolGlyph($r('sys.symbol.person'))
+            .fontSize(fs(24, this.fontScale))
+            .fontColor([this.accentColor])
+        }
       }
-      .width(44)
-      .height(44)
-      .backgroundColor(Color.Transparent)
-      .systemMaterial(ImmMaterial.seg(false))
-      .borderRadius(Radius.full)
-      .accessibilityText($r('app.string.weibo_tab_search'))
-      .onClick(() => { this.switchTab(WeiboTab.Search); })
+      .width(36)
+      .height(36)
+      .alignContent(Alignment.Center)
+      .borderRadius(18)
+      .backgroundColor(this.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)')
+      .onClick(() => {
+        this.switchTab(WeiboTab.Mine);
+      })
+
+      Blank()
+
+      // 2. 中间胶囊分段 (关注 / 推荐)
+      Row({ space: 4 }) {
+        // 关注
+        Text($r('app.string.weibo_following_title'))
+          .fontSize(fs(13, this.fontScale))
+          .fontWeight(this.homeMode === WeiboTimelineMode.Following && this.selectedTab === WeiboTab.Home
+            ? FontWeight.Bold : FontWeight.Medium)
+          .fontColor(this.homeMode === WeiboTimelineMode.Following && this.selectedTab === WeiboTab.Home
+            ? Color.White : Theme.textSecondary(this.isDark))
+          .backgroundColor(this.homeMode === WeiboTimelineMode.Following && this.selectedTab === WeiboTab.Home
+            ? this.accentColor : Color.Transparent)
+          .borderRadius(16)
+          .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+          .shadow(this.homeMode === WeiboTimelineMode.Following && this.selectedTab === WeiboTab.Home
+            ? { radius: 8, color: 'rgba(78, 170, 120, 0.35)', offsetY: 2 } : { radius: 0, color: '#00000000' })
+          .onClick(() => {
+            if (this.selectedTab !== WeiboTab.Home) {
+              this.switchTab(WeiboTab.Home);
+            }
+            this.switchHomeMode(WeiboTimelineMode.Following);
+          })
+
+        // 推荐
+        Text($r('app.string.weibo_recommend_title'))
+          .fontSize(fs(13, this.fontScale))
+          .fontWeight(this.homeMode === WeiboTimelineMode.Recommend && this.selectedTab === WeiboTab.Home
+            ? FontWeight.Bold : FontWeight.Medium)
+          .fontColor(this.homeMode === WeiboTimelineMode.Recommend && this.selectedTab === WeiboTab.Home
+            ? Color.White : Theme.textSecondary(this.isDark))
+          .backgroundColor(this.homeMode === WeiboTimelineMode.Recommend && this.selectedTab === WeiboTab.Home
+            ? this.accentColor : Color.Transparent)
+          .borderRadius(16)
+          .padding({ left: 14, right: 14, top: 6, bottom: 6 })
+          .shadow(this.homeMode === WeiboTimelineMode.Recommend && this.selectedTab === WeiboTab.Home
+            ? { radius: 8, color: 'rgba(78, 170, 120, 0.35)', offsetY: 2 } : { radius: 0, color: '#00000000' })
+          .onClick(() => {
+            if (this.selectedTab !== WeiboTab.Home) {
+              this.switchTab(WeiboTab.Home);
+            }
+            this.switchHomeMode(WeiboTimelineMode.Recommend);
+          })
+      }
+      .padding(3)
+      .borderRadius(20)
+      .backgroundColor(this.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.05)')
+
+      Blank()
+
+      // 3. 右侧圆形微型发博按钮 (+)
+      Button() {
+        SymbolGlyph($r('sys.symbol.plus'))
+          .fontSize(fs(18, this.fontScale))
+          .fontColor([Theme.textPrimary(this.isDark)])
+      }
+      .width(36)
+      .height(36)
+      .backgroundColor(this.isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.04)')
+      .borderRadius(18)
+      .accessibilityText('发微博')
+      .onClick(() => {
+        this.openComposeDialog();
+      })
     }
     .width('100%')
-    .padding({ left: Spacing.lg, right: Spacing.lg })
+    .padding({ left: Spacing.md, right: Spacing.md })
+    .alignItems(VerticalAlign.Center)
     .backgroundColor(Color.Transparent)
+    .onTouch((event: TouchEvent): void => {
+      this.titleTouchTracker.track(event);
+      if (event.type === TouchType.Cancel) { this.resetTabDrag(); }
+    })
+    .gesture(
+      PanGesture({ fingers: 1, direction: PanDirection.Horizontal, distance: 12 })
+        .tag('weibo-tab-swipe')
+        .onActionStart((): void => {
+          this.titleTouchTracker.claim();
+          this.tabDragging = true;
+        })
+        .onActionUpdate((event: GestureEvent): void => {
+          this.tabDragOffset = this.titleTouchTracker.update(event, this.homeMode === WeiboTimelineMode.Recommend, this.homeMode === WeiboTimelineMode.Following);
+        })
+        .onActionEnd((event: GestureEvent): void => { this.onHomeTabPanEnd(event, this.titleTouchTracker); })
+        .onActionCancel((): void => {
+          this.titleTouchTracker.cancel();
+          this.resetTabDrag();
+        })
+    )
+    .onGestureJudgeBegin((info: GestureInfo, event: BaseGestureEvent): GestureJudgeResult => {
+      return this.titleTouchTracker.judge(info, event, this.selectedTab === WeiboTab.Home);
+    })
   }
 
   /** HarmonyX-style title-bar bottom region: a material search field below the native title. */
@@ -743,32 +1006,365 @@ struct Index {
     this.HomeFeedContent()
   }
 
+  private async loadNotifications(refresh: boolean = false, more: boolean = false): Promise<void> {
+    if (!this.cookieConfigured) { this.notifications = []; this.messagesRefreshing = false; return; }
+    if (!refresh && (this.messagesLoading || this.messagesLoadingMore)) { return; }
+    if (more && (!this.hasMoreMessages || this.messagePage === 0)) { return; }
+    if (refresh) { this.messageEpoch++; }
+    const epoch: number = this.messageEpoch;
+    const type: 'all' | 'mention' | 'comment' | 'like' = this.messageType;
+    const page: number = more ? this.messagePage + 1 : 1;
+    this.messagesLoading = !more;
+    this.messagesLoadingMore = more;
+    this.messageError = '';
+    try {
+      const items: WeiboNotification[] = await WeiboService.getInstance().fetchNotifications(type, page);
+      if (epoch !== this.messageEpoch || type !== this.messageType) { return; }
+      const next: WeiboNotification[] = more ? items.filter((item: WeiboNotification): boolean =>
+        !this.notifications.some((old: WeiboNotification): boolean => old.id === item.id)) : items;
+      this.notifications = more ? this.notifications.concat(next) : next;
+      this.messagePage = page;
+      this.hasMoreMessages = items.length > 0 && next.length > 0;
+      this.messagesLoaded = true;
+    } catch (error) {
+      if (epoch === this.messageEpoch) { this.messageError = (error as Error).message ?? '消息加载失败，请重试'; }
+    } finally {
+      if (epoch === this.messageEpoch) {
+        this.messagesLoading = false;
+        this.messagesLoadingMore = false;
+        this.messagesRefreshing = false;
+        if (refresh) {
+          setTimeout((): void => {
+            try {
+              this.messagesScroller.scrollEdge(Edge.Top);
+            } catch (_e) {}
+          }, 100);
+        }
+      }
+    }
+  }
+
+  private markNotificationRead(id: string): void {
+    if (!this.readNotificationIds.includes(id)) {
+      this.readNotificationIds.push(id);
+    }
+  }
+
+  private openNotificationDetail(item: WeiboNotification): void {
+    this.markNotificationRead(item.id);
+    if (item.targetPostId.length === 0) {
+      this.getUIContext().getPromptAction().showToast({ message: '原微博暂不可用或已被删除' });
+      return;
+    }
+    const initialTab: WeiboDetailTab = item.type === 'like' ? WeiboDetailTab.Likes : WeiboDetailTab.Comments;
+    const param: WeiboPostDetailRouteParam = {
+      postId: item.targetPostId,
+      initialTab: initialTab,
+      targetCommentId: item.targetCommentId
+    };
+    this.weiboNavStack.pushPath({ name: 'WeiboPostDetail', param: param });
+  }
+
+  private switchMessageType(type: 'all' | 'mention' | 'comment' | 'like'): void {
+    if (this.messageType === type) {
+      return;
+    }
+    this.messageType = type;
+    this.notifications = [];
+    this.messagePage = 0;
+    this.messagesLoaded = false;
+    this.loadNotifications(true);
+  }
+
+  @Builder
+  MessageSegmentCapsule(label: string, type: 'all' | 'mention' | 'comment' | 'like') {
+    Button({ type: ButtonType.Capsule, stateEffect: true }) {
+      Text(label)
+        .fontSize(fs(13, this.fontScale))
+        .fontWeight(this.messageType === type ? FontWeight.Bold : FontWeight.Medium)
+        .fontColor(this.messageType === type ? Color.White : Theme.textSecondary(this.isDark))
+    }
+    .layoutWeight(1)
+    .height(36)
+    .backgroundColor(this.messageType === type ? Theme.brand() : Theme.bgCard(this.isDark))
+    .border({
+      width: this.messageType === type ? 0 : 0.5,
+      color: Theme.cardBorder(this.isDark)
+    })
+    .shadow(this.messageType === type ? {
+      radius: 8,
+      color: this.isDark ? '#404EAA78' : '#334EAA78',
+      offsetY: 2
+    } : undefined)
+    .onClick((): void => {
+      this.switchMessageType(type);
+    })
+  }
+
   @Builder
   MessagesPage() {
+    Refresh({ refreshing: this.messagesRefreshing }) {
     Scroll(this.messagesScroller) {
       Column({ space: Spacing.md }) {
-        Text($r('app.string.weibo_feature_unavailable'))
-          .fontSize(fs(15, this.fontScale))
-          .fontColor(Theme.textSecondary(this.isDark))
-          .textAlign(TextAlign.Center)
+        if (!this.cookieConfigured) {
+          Column({ space: Spacing.sm }) {
+            SymbolGlyph($r('sys.symbol.bell'))
+              .fontSize(44)
+              .fontColor([Theme.brand()])
+              .margin({ top: 40 })
+            Text('登录后查看互动消息')
+              .fontSize(fs(17, this.fontScale))
+              .fontWeight(FontWeight.Bold)
+              .fontColor(Theme.textPrimary(this.isDark))
+            Text('登录你的微博账号，随时掌握收到的评论、赞以及被@提醒')
+              .fontSize(fs(13, this.fontScale))
+              .fontColor(Theme.textSecondary(this.isDark))
+              .textAlign(TextAlign.Center)
+              .padding({ left: 24, right: 24 })
+            Button('去登录')
+              .width(140)
+              .height(40)
+              .margin({ top: 16 })
+              .fontSize(fs(14, this.fontScale))
+              .backgroundColor(Theme.brand())
+              .fontColor(Color.White)
+              .borderRadius(Radius.full)
+              .onClick(() => {
+                this.getUIContext().getRouter().pushUrl({ url: 'pages/WeiboLogin' }).catch(() => {});
+              })
+          }
           .width('100%')
-          .padding({ top: 120, bottom: 180 })
+          .padding(Spacing.xl)
+          .backgroundColor(Theme.bgCard(this.isDark))
+          .borderRadius(Radius.postCard)
+          .alignItems(HorizontalAlign.Center)
+        } else {
+          // 方案 A: 极简胶囊分段导航 (全宽均匀分布，对齐原型)
+          Row({ space: Spacing.sm }) {
+            this.MessageSegmentCapsule('全部', 'all')
+            this.MessageSegmentCapsule('@我的', 'mention')
+            this.MessageSegmentCapsule('评论', 'comment')
+            this.MessageSegmentCapsule('赞', 'like')
+          }
+          .width('100%')
+          .padding({ bottom: 4 })
+
+          if (this.messagesLoading) {
+            Row({ space: Spacing.sm }) {
+              LoadingProgress().width(20).height(20)
+              Text('正在拉取消息…')
+                .fontSize(fs(13, this.fontScale))
+                .fontColor(Theme.textSecondary(this.isDark))
+            }
+            .width('100%')
+            .justifyContent(FlexAlign.Center)
+            .padding({ top: 60, bottom: 60 })
+          } else if (this.messageError.length > 0 && this.notifications.length === 0) {
+            Text(this.messageError).fontSize(fs(14, this.fontScale)).fontColor(Theme.danger()).padding(16)
+            Button('重新加载').height(44).onClick((): void => { this.loadNotifications(true); })
+          } else if (this.notifications.length === 0) {
+            Column({ space: Spacing.sm }) {
+              Stack() {
+                SymbolGlyph($r('sys.symbol.envelope'))
+                  .fontSize(36)
+                  .fontColor([Theme.brand()])
+              }
+              .width(68)
+              .height(68)
+              .borderRadius(34)
+              .backgroundColor(this.isDark ? 'rgba(78, 170, 120, 0.15)' : 'rgba(78, 170, 120, 0.10)')
+              .alignContent(Alignment.Center)
+              .margin({ top: 32, bottom: 4 })
+
+              Text('暂无新互动消息')
+                .fontSize(fs(16, this.fontScale))
+                .fontWeight(FontWeight.Bold)
+                .fontColor(Theme.textPrimary(this.isDark))
+
+              Text('当有人评论、点赞或提到你时，会在这里显示')
+                .fontSize(fs(13, this.fontScale))
+                .fontColor(Theme.textTertiary(this.isDark))
+                .textAlign(TextAlign.Center)
+            }
+            .width('100%')
+            .alignItems(HorizontalAlign.Center)
+            .padding({ top: 20, bottom: 60 })
+          } else {
+            ForEach(this.notifications, (item: WeiboNotification): void => {
+              Row({ space: Spacing.md }) {
+                // 头像及右下角动作微徽标
+                Stack({ alignContent: Alignment.BottomEnd }) {
+                  if (item.senderAvatar.length > 0) {
+                    Image(item.senderAvatar)
+                      .width(42)
+                      .height(42)
+                      .borderRadius(21)
+                      .objectFit(ImageFit.Cover)
+                      .onClick(() => {
+                        if (item.senderId.length > 0) {
+                          const param: WeiboUserProfileRouteParam = { userId: item.senderId, userName: item.senderName };
+                          this.weiboNavStack.pushPath({ name: 'WeiboUserProfile', param: param });
+                        }
+                      })
+                  } else {
+                    Stack() {
+                      Text(item.senderName.substring(0, 1))
+                        .fontSize(fs(16, this.fontScale))
+                        .fontColor(Color.White)
+                        .fontWeight(FontWeight.Bold)
+                    }
+                    .width(42)
+                    .height(42)
+                    .borderRadius(21)
+                    .backgroundColor(Theme.brand())
+                    .alignContent(Alignment.Center)
+                  }
+
+                  // 动作微标
+                  Stack() {
+                    SymbolGlyph(item.type === 'like' ? $r('sys.symbol.heart_fill') :
+                      (item.type === 'comment' ? $r('sys.symbol.ellipsis_message') : $r('sys.symbol.at')))
+                      .fontSize(10)
+                      .fontColor([item.type === 'like' ? '#E05252' : Theme.brand()])
+                  }
+                  .width(18)
+                  .height(18)
+                  .borderRadius(9)
+                  .backgroundColor(Theme.bgCard(this.isDark))
+                  .border({ width: 1.5, color: Theme.bg(this.isDark) })
+                  .alignContent(Alignment.Center)
+                  .offset({ x: 2, y: 2 })
+                }
+                .width(44)
+                .height(44)
+                .alignSelf(ItemAlign.Start)
+
+                Column({ space: 5 }) {
+                  Row() {
+                    Text(item.senderName)
+                      .fontSize(fs(14, this.fontScale))
+                      .fontWeight(FontWeight.Bold)
+                      .fontColor(Theme.textPrimary(this.isDark))
+                      .layoutWeight(1)
+                      .onClick(() => {
+                        if (item.senderId.length > 0) {
+                          const param: WeiboUserProfileRouteParam = { userId: item.senderId, userName: item.senderName };
+                          this.weiboNavStack.pushPath({ name: 'WeiboUserProfile', param: param });
+                        }
+                      })
+                    if (!this.readNotificationIds.includes(item.id)) {
+                      Circle({ width: 6, height: 6 })
+                        .fill(Theme.brand())
+                        .margin({ right: 6 })
+                    }
+                    Text(item.createdAt)
+                      .fontSize(fs(11, this.fontScale))
+                      .fontColor(Theme.textTertiary(this.isDark))
+                  }
+                  .width('100%')
+
+                  Text(item.title)
+                    .fontSize(fs(12, this.fontScale))
+                    .fontColor(item.type === 'like' ? '#E05252' : Theme.brand())
+
+                  if (item.content.length > 0) {
+                    WeiboRichTextView({
+                      text: item.content, fontSize: fs(14, this.fontScale), lineHeight: fs(20, this.fontScale),
+                      fontColor: Theme.textPrimary(this.isDark),
+                      onTopicClick: (topic: string): void => {
+                        const param: WeiboSearchResultRouteParam = { query: topic };
+                        this.weiboNavStack.pushPath({ name: 'WeiboSearchResult', param: param });
+                      },
+                      onMentionClick: (name: string): void => {
+                        const param: WeiboUserProfileRouteParam = { userId: '', userName: name };
+                        this.weiboNavStack.pushPath({ name: 'WeiboUserProfile', param: param });
+                      }
+                    }).width('100%')
+                  }
+
+                  if (item.targetSnippet.length > 0) {
+                    Row({ space: 6 }) {
+                      Text('原贴')
+                        .fontSize(fs(10, this.fontScale))
+                        .fontColor(Theme.brand())
+                        .backgroundColor(this.isDark ? '#264EAA78' : '#144EAA78')
+                        .padding({ left: 5, right: 5, top: 1, bottom: 1 })
+                        .borderRadius(4)
+                      Text(item.targetSnippet)
+                        .fontSize(fs(12, this.fontScale))
+                        .fontColor(Theme.textSecondary(this.isDark))
+                        .maxLines(2)
+                        .textOverflow({ overflow: TextOverflow.Ellipsis })
+                        .layoutWeight(1)
+                    }
+                    .padding(9)
+                    .width('100%')
+                    .backgroundColor(this.isDark ? '#14FFFFFF' : '#08000000')
+                    .borderRadius(Radius.md)
+                    .border({ width: 0.5, color: Theme.cardBorder(this.isDark) })
+                    .onClick(() => {
+                      if (item.targetPostId.length > 0) {
+                        const param: WeiboPostDetailRouteParam = { postId: item.targetPostId };
+                        this.weiboNavStack.pushPath({ name: 'WeiboPostDetail', param: param });
+                      }
+                    })
+                  }
+                }
+                .layoutWeight(1)
+                .alignItems(HorizontalAlign.Start)
+              }
+              .width('100%')
+              .padding(Spacing.lg)
+              .backgroundColor(Theme.bgCard(this.isDark))
+              .borderRadius(Radius.postCard)
+              .shadow(Theme.glassShadowStyle())
+              .border({ width: 0.5, color: Theme.cardBorder(this.isDark) })
+              .onClick(() => {
+                this.openNotificationDetail(item);
+              })
+            }, (item: WeiboNotification): string => item.id)
+            if (this.messagesLoadingMore) {
+              LoadingProgress().width(24).height(44)
+            } else if (this.hasMoreMessages || this.messageError.length > 0) {
+              Button(this.messageError.length > 0 ? `${this.messageError} · 重试` : '加载更多消息')
+                .height(44).onClick((): void => { this.loadNotifications(false, true); })
+            } else {
+              Text('已显示全部消息').fontSize(fs(13, this.fontScale)).fontColor(Theme.textSecondary(this.isDark)).padding(12)
+            }
+          }
+        }
       }
       .width('100%')
-      .padding({ top: this.contentTopInset(), left: Spacing.lg, right: Spacing.lg, bottom: 120 })
+      .padding({ top: Spacing.md, left: Spacing.lg, right: Spacing.lg, bottom: 120 })
     }
     .width('100%')
     .height('100%')
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
-    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP, SafeAreaEdge.BOTTOM])
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
     .backgroundColor(Theme.bg(this.isDark))
-    .translate({ x: this.messagesTranslateX })
-    .opacity(this.messagesOpacity)
+    .onDidScroll((xOffset: number, yOffset: number, scrollState: ScrollState): void => {
+      if (scrollState !== ScrollState.Scroll) { return; }
+      if (this.messagesScroller.currentOffset().yOffset <= 0) {
+        this.setTabBarVisible(true);
+        return;
+      }
+      if (yOffset > 8) { this.setTabBarVisible(false); }
+      else if (yOffset < -8) { this.setTabBarVisible(true); }
+    })
+    .onScrollEdge((edge: Edge): void => {
+      if (edge === Edge.Bottom && this.messageError.length === 0) { this.loadNotifications(false, true); }
+    })
+    }
+    .onRefreshing((): void => {
+      this.messagesRefreshing = true;
+      Haptic.light();
+      this.loadNotifications(true);
+    })
   }
 
   @Builder
-  MineEntry(icon: Resource, title: ResourceStr, note: ResourceStr, onTap: () => void): void {
+  MineEntry(icon: Resource, title: ResourceStr, note: ResourceStr, onTap: () => void, isLast: boolean = false): void {
     Row({ space: Spacing.md }) {
       SymbolGlyph(icon)
         .fontSize(fs(20, this.fontScale))
@@ -776,7 +1372,7 @@ struct Index {
         .width(28)
       Column({ space: 3 }) {
         Text(title)
-          .fontSize(fs(16, this.fontScale))
+          .fontSize(fs(15, this.fontScale))
           .fontWeight(FontWeight.Medium)
           .fontColor(Theme.textPrimary(this.isDark))
         Text(note)
@@ -788,33 +1384,33 @@ struct Index {
       .layoutWeight(1)
       .alignItems(HorizontalAlign.Start)
       SymbolGlyph($r('sys.symbol.chevron_right'))
-        .fontSize(fs(17, this.fontScale))
+        .fontSize(fs(16, this.fontScale))
         .fontColor([Theme.textTertiary(this.isDark)])
     }
     .width('100%')
-    .padding(Spacing.lg)
-    .backgroundColor(Theme.bgCard(this.isDark))
-    .borderRadius(Radius.postCard)
+    .padding({ left: Spacing.lg, right: Spacing.lg, top: 14, bottom: 14 })
+    .border(isLast ? { width: 0 } : { width: { bottom: 0.5 }, color: Theme.manualGlassBorder() })
     .onClick(() => { onTap(); })
   }
 
   private async openMyPosts(): Promise<void> {
+    if (!this.cookieConfigured) {
+      this.getUIContext().getPromptAction().showToast({ message: '请先登录微博账号' });
+      this.openLogin();
+      return;
+    }
     let userId: string = this.accountProfile === null ? '' : this.accountProfile.id;
-    if (userId.length === 0 && this.cookieConfigured) {
+    if (userId.length === 0) {
       try {
         const account: WeiboUser = await WeiboService.getInstance().fetchCurrentUserProfile();
         this.accountProfile = account;
         userId = account.id;
-      } catch (error) {
+      } catch (_error) {
       }
-    }
-    if (userId.length === 0) {
-      this.getUIContext().getPromptAction().showToast({ message: '请先登录并完成账号资料读取' });
-      return;
     }
     this.getUIContext().getRouter().pushUrl({
       url: 'pages/WeiboFeed',
-      params: { userId: userId, ownProfile: 'true' }
+      params: { userId: userId, ownProfile: 'true', mode: 'user' }
     }).catch(() => {
       this.getUIContext().getPromptAction().showToast({ message: '我的微博打开失败，请稍后重试' });
     });
@@ -823,10 +1419,94 @@ struct Index {
   private openFollowing(): void {
     if (!this.cookieConfigured) {
       this.getUIContext().getPromptAction().showToast({ message: '请先登录微博后查看关注动态' });
+      this.openLogin();
       return;
     }
-    this.homeMode = WeiboTimelineMode.Following;
-    this.selectedTab = WeiboTab.Home;
+    this.switchHomeMode(WeiboTimelineMode.Following);
+    this.switchTab(WeiboTab.Home);
+  }
+
+  private openFavorites(): void {
+    if (!this.cookieConfigured) {
+      this.getUIContext().getPromptAction().showToast({ message: '请先登录微博后查看我的收藏' });
+      this.openLogin();
+      return;
+    }
+    const uid: string = this.accountProfile?.id ?? '';
+    this.getUIContext().getRouter().pushUrl({
+      url: 'pages/WeiboFeed',
+      params: { mode: 'favorites', userId: uid }
+    }).catch(() => {
+      this.getUIContext().getPromptAction().showToast({ message: '收藏页面打开失败，请稍后重试' });
+    });
+  }
+
+  private openLikes(): void {
+    if (!this.cookieConfigured) {
+      this.getUIContext().getPromptAction().showToast({ message: '请先登录微博后查看我的点赞' });
+      this.openLogin();
+      return;
+    }
+    const uid: string = this.accountProfile?.id ?? '';
+    this.getUIContext().getRouter().pushUrl({
+      url: 'pages/WeiboFeed',
+      params: { mode: 'likes', userId: uid }
+    }).catch(() => {
+      this.getUIContext().getPromptAction().showToast({ message: '点赞页面打开失败，请稍后重试' });
+    });
+  }
+
+  private openHistory(): void {
+    const uid: string = this.accountProfile?.id ?? '';
+    this.getUIContext().getRouter().pushUrl({
+      url: 'pages/WeiboFeed',
+      params: { mode: 'history', userId: uid }
+    }).catch(() => {
+      this.getUIContext().getPromptAction().showToast({ message: '浏览历史打开失败，请稍后重试' });
+    });
+  }
+
+  private async logout(switchAccount: boolean = false): Promise<void> {
+    if (this.sessionResetting) { return; }
+    this.sessionResetting = true;
+    const cleanup: Promise<void> = WeiboAuthManager.getInstance().clearCookie();
+    this.accountProfile = null;
+    this.cookieConfigured = false;
+    AppStorage.setOrCreate<number>('weiboAuthTick', (AppStorage.get<number>('weiboAuthTick') ?? 0) + 1);
+    try {
+      await cleanup;
+      AppStorage.setOrCreate<number>('weiboAuthTick', (AppStorage.get<number>('weiboAuthTick') ?? 0) + 1);
+      this.logoutRetryRequired = false;
+      this.getUIContext().getPromptAction().showToast({ message: switchAccount ? '旧账号会话已清除，请登录其他账号' : '已退出登录' });
+      if (switchAccount) { this.openLogin(); }
+    } catch (error) {
+      this.logoutRetryRequired = true;
+      this.getUIContext().getPromptAction().showToast({ message: (error as Error).message ?? '退出清理失败，请重试' });
+    } finally { this.sessionResetting = false; }
+  }
+
+  private openLogin(): void {
+    if (this.logoutRetryRequired) {
+      this.getUIContext().getPromptAction().showToast({ message: '请先重试退出清理，避免重新使用旧账号' });
+      return;
+    }
+    this.getUIContext().getRouter().pushUrl({ url: 'pages/WeiboLogin' }).catch(() => {
+      this.getUIContext().getPromptAction().showToast({ message: '登录页打开失败，请稍后重试' });
+    });
+  }
+
+  private clearImageCache(): void {
+    try {
+      const result = ImageCache.clearAllCache();
+      const size: string = result.deletedBytes < 1024 * 1024
+        ? `${(result.deletedBytes / 1024).toFixed(1)} KB` : `${(result.deletedBytes / (1024 * 1024)).toFixed(1)} MB`;
+      const message: string = result.failedFiles > 0
+        ? `已清理 ${size}，${result.failedFiles} 个缓存文件清理失败，请重试`
+        : `已清理 ${size} 本地图片缓存`;
+      this.getUIContext().getPromptAction().showToast({ message: message });
+    } catch (_error) {
+      this.getUIContext().getPromptAction().showToast({ message: '读取或清理图片缓存失败，请稍后重试' });
+    }
   }
 
   private openSettings(): void {
@@ -846,66 +1526,69 @@ struct Index {
     Scroll(this.mineScroller) {
       Column({ space: Spacing.md }) {
         if (this.cookieConfigured && this.accountProfile !== null) {
-          Row({ space: Spacing.md }) {
-            if (this.accountProfile.avatarUrl.length > 0) {
-              Image(this.accountProfile.avatarUrl)
+          Column({ space: Spacing.md }) {
+            Row({ space: Spacing.md }) {
+              if (this.accountProfile.avatarUrl.length > 0) {
+                Image(this.accountProfile.avatarUrl)
+                  .width(58)
+                  .height(58)
+                  .borderRadius(Radius.full)
+                  .objectFit(ImageFit.Cover)
+              } else {
+                Stack() {
+                  Text(this.accountProfile.screenName.substring(0, 1))
+                    .fontSize(fs(22, this.fontScale))
+                    .fontWeight(FontWeight.Bold)
+                    .fontColor(Color.White)
+                }
                 .width(58)
                 .height(58)
                 .borderRadius(Radius.full)
-                .objectFit(ImageFit.Cover)
-            } else {
-              Stack() {
-                Text(this.accountProfile.screenName.substring(0, 1))
-                  .fontSize(fs(22, this.fontScale))
-                  .fontWeight(FontWeight.Bold)
-                  .fontColor(Color.White)
+                .backgroundColor(Theme.brand())
+                .alignContent(Alignment.Center)
               }
-              .width(58)
-              .height(58)
-              .borderRadius(Radius.full)
-              .backgroundColor(Theme.brand())
-              .alignContent(Alignment.Center)
+              Column({ space: 4 }) {
+                Text(this.accountProfile.screenName)
+                  .fontSize(fs(18, this.fontScale))
+                  .fontWeight(FontWeight.Bold)
+                  .fontColor(Theme.textPrimary(this.isDark))
+                Text(this.accountProfile.description.length > 0 ? this.accountProfile.description : '已登录微博')
+                  .fontSize(fs(12, this.fontScale))
+                  .fontColor(Theme.textSecondary(this.isDark))
+                  .maxLines(1)
+                  .textOverflow({ overflow: TextOverflow.Ellipsis })
+              }
+              .layoutWeight(1)
+              .alignItems(HorizontalAlign.Start)
             }
-            Column({ space: 4 }) {
-              Text(this.accountProfile.screenName)
-                .fontSize(fs(18, this.fontScale))
-                .fontWeight(FontWeight.Bold)
-                .fontColor(Theme.textPrimary(this.isDark))
-              Text(this.accountProfile.description.length > 0 ? this.accountProfile.description : '已登录微博')
-                .fontSize(fs(12, this.fontScale))
-                .fontColor(Theme.textSecondary(this.isDark))
-                .maxLines(1)
-                .textOverflow({ overflow: TextOverflow.Ellipsis })
-            }
-            .layoutWeight(1)
-            .alignItems(HorizontalAlign.Start)
-          }
-          .width('100%')
-          .padding(Spacing.lg)
-          .backgroundColor(Theme.bgCard(this.isDark))
-          .borderRadius(Radius.postCard)
+            .width('100%')
 
-          Row() {
-            Column({ space: 3 }) {
-              Text(`${this.accountProfile.followingCount}`).fontSize(fs(17, this.fontScale)).fontWeight(FontWeight.Bold)
-                .fontColor(Theme.textPrimary(this.isDark))
-              Text('关注').fontSize(fs(11, this.fontScale)).fontColor(Theme.textSecondary(this.isDark))
-            }.layoutWeight(1)
-            Column({ space: 3 }) {
-              Text(this.accountProfile.followersCount).fontSize(fs(17, this.fontScale)).fontWeight(FontWeight.Bold)
-                .fontColor(Theme.textPrimary(this.isDark))
-              Text('粉丝').fontSize(fs(11, this.fontScale)).fontColor(Theme.textSecondary(this.isDark))
-            }.layoutWeight(1)
-            Column({ space: 3 }) {
-              Text(`${this.accountProfile.statusesCount}`).fontSize(fs(17, this.fontScale)).fontWeight(FontWeight.Bold)
-                .fontColor(Theme.textPrimary(this.isDark))
-              Text('微博').fontSize(fs(11, this.fontScale)).fontColor(Theme.textSecondary(this.isDark))
-            }.layoutWeight(1)
+            Row() {
+              Column({ space: 3 }) {
+                Text(`${this.accountProfile.followingCount}`).fontSize(fs(17, this.fontScale)).fontWeight(FontWeight.Bold)
+                  .fontColor(Theme.textPrimary(this.isDark))
+                Text('关注').fontSize(fs(11, this.fontScale)).fontColor(Theme.textSecondary(this.isDark))
+              }.layoutWeight(1).alignItems(HorizontalAlign.Center)
+              Column({ space: 3 }) {
+                Text(this.accountProfile.followersCount).fontSize(fs(17, this.fontScale)).fontWeight(FontWeight.Bold)
+                  .fontColor(Theme.textPrimary(this.isDark))
+                Text('粉丝').fontSize(fs(11, this.fontScale)).fontColor(Theme.textSecondary(this.isDark))
+              }.layoutWeight(1).alignItems(HorizontalAlign.Center)
+              Column({ space: 3 }) {
+                Text(`${this.accountProfile.statusesCount}`).fontSize(fs(17, this.fontScale)).fontWeight(FontWeight.Bold)
+                  .fontColor(Theme.textPrimary(this.isDark))
+                Text('微博').fontSize(fs(11, this.fontScale)).fontColor(Theme.textSecondary(this.isDark))
+              }.layoutWeight(1).alignItems(HorizontalAlign.Center)
+            }
+            .width('100%')
+            .padding({ top: Spacing.sm })
+            .border({ width: { top: 0.5 }, color: Theme.manualGlassBorder() })
           }
           .width('100%')
           .padding(Spacing.lg)
           .backgroundColor(Theme.bgCard(this.isDark))
           .borderRadius(Radius.postCard)
+          .shadow(Theme.glassShadowStyle())
         } else {
           Column({ space: Spacing.sm }) {
             Text(this.accountLoading ? '正在读取微博账号…' :
@@ -924,35 +1607,61 @@ struct Index {
           .borderRadius(Radius.postCard)
         }
 
-        this.MineEntry($r('sys.symbol.doc'), '我的微博', '读取当前登录账号发布的微博', () => { this.openMyPosts(); })
-        this.MineEntry($r('sys.symbol.person_2'), '关注动态', '查看我关注的用户最新微博', () => { this.openFollowing(); })
-        this.MineEntry($r('sys.symbol.star'), '我的收藏', '微博公开接口暂不返回收藏列表', () => {
-          this.getUIContext().getPromptAction().showToast({ message: '微博公开接口暂不提供“我的收藏”列表' });
-        })
-        this.MineEntry($r('sys.symbol.heart'), '我的点赞', '支持在微博详情中点赞或取消点赞', () => {
-          this.getUIContext().getPromptAction().showToast({ message: '微博接口支持单条点赞，暂未提供点赞历史列表' });
-        })
-        this.MineEntry($r('sys.symbol.arrow_clockwise'), '刷新账号资料', '重新读取昵称、头像和统计数据', () => { this.loadAccountProfile(); })
-        this.MineEntry($r('sys.symbol.gearshape'), '软件设置', '主题色、应用语言与深浅色模式', () => { this.openSettings(); })
-        this.MineEntry($r('sys.symbol.info_circle'), $r('app.string.weibo_software_about_entry'),
-          $r('app.string.weibo_software_about_entry_description'), () => { this.openAboutSoftware(); })
+        Column() {
+          this.MineEntry($r('sys.symbol.doc'), '我的微博', '读取当前登录账号发布的微博', () => { this.openMyPosts(); })
+          this.MineEntry($r('sys.symbol.star'), '我的收藏', '查看已收藏的微博', () => { this.openFavorites(); })
+          this.MineEntry($r('sys.symbol.heart'), '我的点赞', '查看点赞过的微博历史', () => { this.openLikes(); })
+          this.MineEntry($r('sys.symbol.clock'), '浏览历史', '找回最近看过的微博', () => { this.openHistory(); }, true)
+        }
+        .width('100%')
+        .backgroundColor(Theme.bgCard(this.isDark))
+        .borderRadius(Radius.postCard)
+        .shadow(Theme.glassShadowStyle())
 
-        Button(this.cookieConfigured ? $r('app.string.weibo_login_reauth') : $r('app.string.weibo_login_title'))
-          .width('100%')
-          .height(48)
-          .fontSize(fs(15, this.fontScale))
-          .backgroundColor(Theme.manualGlass(this.isDark, true))
-          .fontColor(Color.White)
-          .border({ width: 0.5, color: Theme.manualGlassBorder() })
-          .shadow(Theme.glassShadowStyle())
-          .backgroundEffect(ImmBlur.accent())
-          .systemMaterial(ImmMaterial.accent(this.isDark))
-          .borderRadius(Radius.full)
-          .onClick(() => {
-            this.getUIContext().getRouter().pushUrl({ url: 'pages/WeiboLogin' }).catch(() => {
-              this.getUIContext().getPromptAction().showToast({ message: '登录页打开失败，请稍后重试' });
-            });
-          })
+        Column() {
+          if (this.cookieConfigured) {
+            this.MineEntry($r('sys.symbol.person_2'), '切换账号', '清除旧账号网页会话后重新登录', () => { this.logout(true); })
+          }
+          if (this.logoutRetryRequired) {
+            this.MineEntry($r('sys.symbol.arrow_clockwise'), '重试退出清理', '上次清理失败，完成后才能重新登录', () => { this.logout(); })
+          }
+          this.MineEntry($r('sys.symbol.arrow_clockwise'), '刷新账号资料', '重新读取昵称、头像和统计数据', () => { this.loadAccountProfile(); })
+          this.MineEntry($r('sys.symbol.trash'), '清理图片缓存', '释放本地已下载的微博配图缓存', () => { this.clearImageCache(); }, true)
+        }
+        .width('100%')
+        .backgroundColor(Theme.bgCard(this.isDark))
+        .borderRadius(Radius.postCard)
+        .shadow(Theme.glassShadowStyle())
+
+        Row({ space: Spacing.sm }) {
+          Button(this.cookieConfigured ? $r('app.string.weibo_login_reauth') : $r('app.string.weibo_login_title'))
+            .layoutWeight(1)
+            .height(48)
+            .fontSize(fs(15, this.fontScale))
+            .backgroundColor(Theme.manualGlass(this.isDark, true))
+            .fontColor(Color.White)
+            .border({ width: 0.5, color: Theme.manualGlassBorder() })
+            .shadow(Theme.glassShadowStyle())
+            .backgroundEffect(ImmBlur.accent())
+            .systemMaterial(ImmMaterial.accent(this.isDark))
+            .borderRadius(Radius.full)
+            .enabled(!this.sessionResetting)
+            .onClick(() => { this.openLogin(); })
+
+          if (this.cookieConfigured) {
+            Button('退出登录')
+              .width(100)
+              .height(48)
+              .fontSize(fs(15, this.fontScale))
+              .backgroundColor(this.isDark ? '#26FF3B30' : '#14FF3B30')
+              .fontColor(Theme.danger())
+              .border({ width: 0.5, color: Theme.danger() })
+              .borderRadius(Radius.full)
+              .enabled(!this.sessionResetting)
+              .onClick(() => { this.logout(); })
+          }
+        }
+        .width('100%')
       }
       .width('100%')
       .padding({ top: this.contentTopInset(), left: Spacing.lg, right: Spacing.lg, bottom: 120 })
@@ -962,22 +1671,29 @@ struct Index {
     .scrollBar(BarState.Off)
     .edgeEffect(EdgeEffect.Spring, { alwaysEnabled: true })
     .backgroundColor(Theme.bg(this.isDark))
-    .translate({ x: this.mineTranslateX })
-    .opacity(this.mineOpacity)
+    .onDidScroll((xOffset: number, yOffset: number, scrollState: ScrollState): void => {
+      if (scrollState !== ScrollState.Scroll) { return; }
+      if (this.mineScroller.currentOffset().yOffset <= 0) {
+        this.setTabBarVisible(true);
+        return;
+      }
+      if (yOffset > 8) { this.setTabBarVisible(false); }
+      else if (yOffset < -8) { this.setTabBarVisible(true); }
+    })
   }
 
   private symbolFor(index: number): Resource {
     if (index === WeiboTab.Discover) {
-      return $r('sys.symbol.flame_fill');
+      return $r('sys.symbol.compass');
     }
     if (index === WeiboTab.Search) {
       return $r('sys.symbol.magnifyingglass');
     }
     if (index === WeiboTab.Messages) {
-      return $r('sys.symbol.envelope');
+      return $r('sys.symbol.bell_fill');
     }
     if (index === WeiboTab.Mine) {
-      return $r('sys.symbol.person');
+      return $r('sys.symbol.person_fill');
     }
     return $r('sys.symbol.house_fill');
   }
@@ -1007,24 +1723,19 @@ struct Index {
     TabContent() {
       WeiboHotSearch({
         pageScroller: this.discoverScroller,
-        topInset: this.contentTopInset(),
+        topInset: this.topAvoidAreaVp() + 10,
         animationTrigger: this.page2Enter,
-        exitTrigger: this.page2Exit
+        exitTrigger: this.page2Exit,
+        onScrollDirection: (visible: boolean): void => this.setTabBarVisible(visible),
+        onSelectTopic: (topic: WeiboHotTopic): void => {
+          this.openSearchTopic(topic.word);
+        },
+        onOpenUserProfile: (userId: string, userName: string): void => {
+          this.openUserProfile(userId, userName);
+        }
       })
     }
     .tabBar(this.hdsTabBar(this.symbolFor(WeiboTab.Discover), $r('app.string.weibo_tab_discover')))
-
-    TabContent() {
-      WeiboSearch({
-        pageScroller: this.searchScroller,
-        topInset: this.searchContentTopInset(),
-        animationTrigger: this.page3Enter,
-        exitTrigger: this.page3Exit,
-        onOpenPost: (post: WeiboPost): void => this.openPostDetail(post),
-        onOpenUserProfile: (userId: string, userName: string): void => this.openUserProfile(userId, userName)
-      })
-    }
-    .tabBar(this.hdsTabBar(this.symbolFor(WeiboTab.Search), $r('app.string.weibo_tab_search')))
 
     TabContent() {
       this.MessagesPage()
@@ -1065,7 +1776,7 @@ struct Index {
     .height('100%')
     .barPosition(BarPosition.End)
     .barOverlap(true)
-    .scrollable(true)
+    .scrollable(this.selectedTab !== WeiboTab.Home)
     .animationDuration(0)
     .attributeModifier(this.hdsTabsModifier)
     .backgroundColor(Theme.bg(this.isDark))
@@ -1098,6 +1809,10 @@ struct Index {
       WeiboPostDetailBuilder()
     } else if (name === 'WeiboUserProfile') {
       WeiboUserProfileBuilder()
+    } else if (name === 'WeiboBrowser') {
+      WeiboBrowserBuilder()
+    } else if (name === 'WeiboSearchResult') {
+      WeiboSearchResultBuilder()
     }
   }
 
@@ -1123,7 +1838,8 @@ struct Index {
       avoidLayoutSafeArea: true,
       content: {
         title: {
-          mainTitle: this.privacyReady && this.privacyAccepted && this.selectedTab !== WeiboTab.Home
+          mainTitle: this.privacyReady && this.privacyAccepted &&
+            this.selectedTab !== WeiboTab.Home && this.selectedTab !== WeiboTab.Discover
             ? this.currentHdsTitle() : ''
         },
         stackBuilder: (): void => this.HdsTitleBarContent(),
@@ -1140,9 +1856,12 @@ struct Index {
     .navBarWidth(480)
     .minContentWidth(360)
     .titleMode(HdsNavigationTitleMode.MINI)
-    .hideTitleBar(false)
+    // Discover owns its search field; an empty native title bar still intercepts its taps.
+    .hideTitleBar(this.privacyReady && this.privacyAccepted && this.selectedTab === WeiboTab.Discover)
     .hideBackButton(true)
     .bindToScrollable([
+      this.homeRecommendScroller,
+      this.homeFollowingScroller,
       this.discoverScroller,
       this.searchScroller,
       this.messagesScroller,

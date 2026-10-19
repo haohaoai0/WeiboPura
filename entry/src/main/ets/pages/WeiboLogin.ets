@@ -16,6 +16,8 @@ struct WeiboLogin {
   @State isDark: boolean = isDarkMode();
   @State checking: boolean = false;
   @State statusText: string = '请在下方页面登录微博';
+  private loginRevision: number = 0;
+  private active: boolean = false;
   @StorageLink('fontScale') fontScale: number = 1.0;
 
   async aboutToAppear(): Promise<void> {
@@ -25,26 +27,35 @@ struct WeiboLogin {
     }
     const context: common.UIAbilityContext = this.getUIContext().getHostContext() as common.UIAbilityContext;
     await WeiboAuthManager.getInstance().init(context);
+    this.loginRevision = WeiboAuthManager.getInstance().getSessionRevision();
+    this.active = true;
   }
 
+  aboutToDisappear(): void { this.active = false; }
+
   private async captureLoginCookie(): Promise<void> {
-    if (this.checking) {
+    if (this.checking || !this.active) {
       return;
     }
     this.checking = true;
     try {
       const cookie: string = await webview.WebCookieManager.fetchCookie(COOKIE_URL, false);
-      if (!cookie.includes('SUB=')) {
+      if (!this.active) { return; }
+      WeiboAuthManager.getInstance().assertSession(this.loginRevision);
+      if (!/(?:^|;\s*)SUB=[^;]+/.test(cookie)) {
         this.statusText = '尚未检测到登录态，请完成登录后重试';
         return;
       }
-      await WeiboAuthManager.getInstance().setCookie(cookie);
+      await WeiboAuthManager.getInstance().setCookie(cookie, this.loginRevision);
+      WeiboAuthManager.getInstance().assertSession(this.loginRevision + 1);
       AppStorage.setOrCreate<number>('weiboAuthTick', (AppStorage.get<number>('weiboAuthTick') ?? 0) + 1);
+      if (!this.active) { return; }
+      this.active = false;
       this.statusText = '登录态已保存';
       this.getUIContext().getPromptAction().showToast({ message: '微博登录成功' });
       this.getUIContext().getRouter().back();
     } catch (error) {
-      this.statusText = '读取登录态失败，请稍后重试';
+      this.statusText = (error as Error).message ?? '读取登录态失败，请稍后重试';
     } finally {
       this.checking = false;
     }
@@ -95,7 +106,7 @@ struct WeiboLogin {
         .javaScriptAccess(true)
         .domStorageAccess(true)
         .onControllerAttached(() => {
-          this.controller.setCustomUserAgent('Mozilla/5.0 (Linux; HarmonyOS) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36 WeiboPura/1.0');
+          this.controller.setCustomUserAgent('Mozilla/5.0 (Linux; HarmonyOS) AppleWebKit/537.36 Chrome/120 Mobile Safari/537.36 Fluo/1.0');
         })
         .onPageEnd(() => { this.captureLoginCookie(); })
     }

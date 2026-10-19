@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo · 搜索分类交互原型 (综合 / 实时 / 用户 / 视频 / 图片)</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --brand-hover: #439669;
+      --brand-light: rgba(78, 170, 120, 0.12);
+      --brand-border: rgba(78, 170, 120, 0.35);
+      --bg: #F4F6F5;
+      --bg-card: #FFFFFF;
+      --bg-input: rgba(0, 0, 0, 0.05);
+      --text-primary: #191E1B;
+      --text-secondary: #616B66;
+      --text-tertiary: #9AA39E;
+      --border-subtle: rgba(0, 0, 0, 0.06);
+
+      --hds-dock-bg: rgba(255, 255, 255, 0.82);
+      --hds-dock-blur: blur(24px) saturate(180%);
+      --hds-dock-border: rgba(255, 255, 255, 0.6);
+      --hds-dock-shadow: 0 10px 30px rgba(18, 38, 28, 0.08);
+
+      --font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Segoe UI", Roboto, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0E1310;
+      --bg-card: #161D19;
+      --bg-input: rgba(255, 255, 255, 0.07);
+      --text-primary: #EDF2EE;
+      --text-secondary: #8E9A93;
+      --text-tertiary: #546059;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+
+      --hds-dock-bg: rgba(22, 29, 25, 0.82);
+      --hds-dock-blur: blur(24px) saturate(180%);
+      --hds-dock-border: rgba(255, 255, 255, 0.12);
+      --hds-dock-shadow: 0 12px 36px rgba(0, 0, 0, 0.45);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: #0A0D0B;
+      color: #EDF2EE;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    /* 顶部控制面板 */
+    .top-panel {
+      width: 100%;
+      max-width: 1240px;
+      background: #131A16;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 20px 24px;
+      margin-bottom: 28px;
+      box-shadow: 0 16px 40px rgba(0,0,0,0.5);
+    }
+
+    .top-header {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .title-group h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .badge-pill {
+      font-size: 11px;
+      font-weight: 600;
+      padding: 3px 9px;
+      border-radius: 999px;
+      background: rgba(78, 170, 120, 0.2);
+      color: #6EDB9D;
+      border: 1px solid rgba(78, 170, 120, 0.4);
+    }
+
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .control-btn {
+      padding: 7px 14px;
+      border-radius: 10px;
+      font-size: 13px;
+      font-weight: 500;
+      cursor: pointer;
+      background: rgba(255, 255, 255, 0.06);
+      color: #C3CEC7;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      transition: all 0.2s;
+    }
+
+    .control-btn:hover {
+      background: rgba(255, 255, 255, 0.12);
+      color: #FFFFFF;
+    }
+
+    .control-btn.active {
+      background: var(--brand);
+      color: #FFFFFF;
+      border-color: var(--brand);
+    }
+
+    .desc-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      font-size: 12px;
+      color: #8E9A93;
+      line-height: 1.6;
+    }
+
+    .desc-card {
+      background: rgba(255, 255, 255, 0.03);
+      padding: 12px 14px;
+      border-radius: 12px;
+      border-left: 3px solid var(--brand);
+    }
+
+    .desc-card strong {
+      color: #D2DDD7;
+      font-weight: 600;
+    }
+
+    /* 原型展示区域 */
+    .showcase-container {
+      width: 100%;
+      max-width: 1280px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      gap: 24px;
+      flex-wrap: wrap;
+    }
+
+    /* 手机外壳模型 (HarmonyOS NEXT 手机机型) */
+    .phone-mockup {
+      width: 380px;
+      height: 780px;
+      background: var(--bg);
+      border-radius: 46px;
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 60px rgba(0, 0, 0, 0.6), 0 0 0 10px #1E2521, 0 0 0 12px #333F38;
+      transition: transform 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .phone-mockup:hover {
+      transform: translateY(-4px);
+    }
+
+    /* 顶部状态栏 */
+    .status-bar {
+      height: 40px;
+      padding: 10px 24px 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-primary);
+      z-index: 50;
+      flex-shrink: 0;
+    }
+
+    .camera-hole {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      background: #000;
+      position: absolute;
+      left: 50%;
+      top: 12px;
+      transform: translateX(-50%);
+    }
+
+    .status-icons {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      font-size: 11px;
+    }
+
+    /* 搜索栏吸顶区域 (带模糊背景) */
+    .search-header {
+      background: var(--hds-dock-bg);
+      backdrop-filter: var(--hds-dock-blur);
+      -webkit-backdrop-filter: var(--hds-dock-blur);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 8px 14px 6px;
+      z-index: 40;
+      flex-shrink: 0;
+    }
+
+    .search-bar-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+
+    .back-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--bg-input);
+      color: var(--text-primary);
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+
+    .back-btn svg {
+      width: 18px;
+      height: 18px;
+      fill: currentColor;
+    }
+
+    .search-input-box {
+      flex: 1;
+      height: 36px;
+      background: var(--bg-input);
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      padding: 0 12px;
+      gap: 8px;
+      border: 1px solid transparent;
+      transition: all 0.2s;
+    }
+
+    .search-input-box:focus-within {
+      border-color: var(--brand-border);
+      background: var(--bg-card);
+    }
+
+    .search-input-box svg {
+      width: 15px;
+      height: 15px;
+      fill: var(--text-tertiary);
+    }
+
+    .search-input-box input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      font-size: 13.5px;
+      color: var(--text-primary);
+      font-family: inherit;
+    }
+
+    .clear-icon {
+      width: 16px;
+      height: 16px;
+      border-radius: 50%;
+      background: var(--text-tertiary);
+      color: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+
+    /* 搜索分类选项卡 (水平滚动/胶囊吸顶) */
+    .tabs-strip {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      overflow-x: auto;
+      scrollbar-width: none;
+      padding: 2px 2px 4px;
+    }
+
+    .tabs-strip::-webkit-scrollbar {
+      display: none;
+    }
+
+    .tab-item {
+      padding: 6px 14px;
+      border-radius: 16px;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.2s cubic-bezier(0.2, 0.8, 0.2, 1);
+      position: relative;
+    }
+
+    .tab-item:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-item.active {
+      color: #FFFFFF;
+      background: var(--brand);
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(78, 170, 120, 0.35);
+    }
+
+    /* 次级过滤条 (实时模式下显示排序/时间) */
+    .sub-filter-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 6px 16px 4px;
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      border-bottom: 1px solid var(--border-subtle);
+      background: var(--bg);
+    }
+
+    .sub-filter-row span {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .filter-tag {
+      padding: 2px 8px;
+      border-radius: 6px;
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      font-size: 11px;
+    }
+
+    /* 页面可滚动内容区 */
+    .feed-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 10px 12px 30px;
+      scrollbar-width: none;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .feed-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 综合标签下：置顶精准用户卡片 */
+    .user-highlight-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 12px 14px;
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+
+    .user-info-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      flex: 1;
+      min-width: 0;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      flex-shrink: 0;
+      background: #2C3530;
+      position: relative;
+    }
+
+    .avatar-wrap {
+      position: relative;
+    }
+
+    .v-badge {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: #E8A838;
+      color: #FFFFFF;
+      font-size: 9px;
+      font-weight: 800;
+      position: absolute;
+      right: -2px;
+      bottom: -2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: 2px solid var(--bg-card);
+    }
+
+    .user-meta-texts {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-name {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .user-sub {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    .follow-btn {
+      padding: 5px 12px;
+      border-radius: 14px;
+      font-size: 12px;
+      font-weight: 600;
+      background: var(--brand);
+      color: #FFFFFF;
+      border: none;
+      cursor: pointer;
+      flex-shrink: 0;
+      display: flex;
+      align-items: center;
+      gap: 3px;
+    }
+
+    .follow-btn.followed {
+      background: var(--bg-input);
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    /* 微博卡片样式 (对齐 Fluo 现有 ThreadCard) */
+    .tweet-card {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 2px 6px rgba(0,0,0,0.02);
+    }
+
+    .tweet-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .author-cluster {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .author-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #3B4741;
+      object-fit: cover;
+    }
+
+    .author-texts h4 {
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .author-time {
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .tweet-body {
+      font-size: 13.5px;
+      line-height: 1.55;
+      color: var(--text-primary);
+      margin-bottom: 10px;
+      word-break: break-word;
+    }
+
+    .highlight-keyword {
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    /* 九宫格 / 图片容器 */
+    .image-grid {
+      display: grid;
+      gap: 4px;
+      border-radius: 10px;
+      overflow: hidden;
+      margin-bottom: 10px;
+    }
+
+    .image-grid.cols-3 {
+      grid-template-columns: repeat(3, 1fr);
+    }
+
+    .image-grid.cols-2 {
+      grid-template-columns: repeat(2, 1fr);
+    }
+
+    .image-grid.cols-1 {
+      grid-template-columns: 1fr;
+    }
+
+    .grid-img {
+      width: 100%;
+      height: 90px;
+      background: #252D28;
+      object-fit: cover;
+    }
+
+    .video-cover-card {
+      position: relative;
+      width: 100%;
+      height: 160px;
+      border-radius: 10px;
+      background: #1C2420;
+      overflow: hidden;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .play-circle {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      backdrop-filter: blur(8px);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+    }
+
+    .duration-badge {
+      position: absolute;
+      right: 8px;
+      bottom: 8px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: rgba(0,0,0,0.7);
+      color: #fff;
+      font-size: 10px;
+    }
+
+    /* 底部操作条 (转发/评论/点赞) */
+    .tweet-footer {
+      display: flex;
+      justify-content: space-around;
+      align-items: center;
+      padding-top: 10px;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+    }
+
+    .action-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      cursor: pointer;
+    }
+
+    /* 用户页专属：整页用户列表视图 */
+    .user-list-item {
+      background: var(--bg-card);
+      border-radius: 16px;
+      padding: 14px;
+      border: 1px solid var(--border-subtle);
+      display: flex;
+      align-items: flex-start;
+      gap: 12px;
+    }
+
+    .user-list-item .avatar {
+      width: 48px;
+      height: 48px;
+    }
+
+    .user-details {
+      flex: 1;
+      min-width: 0;
+    }
+
+    .user-details h3 {
+      font-size: 14.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .user-desc-text {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.4;
+      margin-bottom: 6px;
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+    }
+
+    .user-counts {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      display: flex;
+      gap: 12px;
+    }
+
+    /* 原型卡片标签 */
+    .prototype-label {
+      position: absolute;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: rgba(0,0,0,0.75);
+      backdrop-filter: blur(10px);
+      padding: 4px 12px;
+      border-radius: 14px;
+      font-size: 11px;
+      color: #C3CEC7;
+      border: 1px solid rgba(255,255,255,0.15);
+      z-index: 60;
+      pointer-events: none;
+    }
+
+    /* 底部导航微光条 */
+    .home-indicator {
+      width: 120px;
+      height: 4px;
+      border-radius: 2px;
+      background: var(--text-tertiary);
+      opacity: 0.3;
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 50;
+    }
+  </style>
+</head>
+<body data-theme="dark">
+
+  <!-- 顶部控制条 -->
+  <div class="top-panel">
+    <div class="top-header">
+      <div class="title-group">
+        <h1>Fluo · 微博搜索多分类交互原型</h1>
+        <span class="badge-pill">HDS 鸿蒙原生规范</span>
+      </div>
+      <div class="top-actions">
+        <button class="control-btn" id="themeToggle" onclick="toggleTheme()">切换浅色/深色</button>
+        <button class="control-btn active" id="modeSide" onclick="switchView('side')">三屏并排对比</button>
+        <button class="control-btn" id="modeSingle" onclick="switchView('single')">单机交互模拟</button>
+      </div>
+    </div>
+    <div class="desc-grid">
+      <div class="desc-card">
+        <strong>1. 综合 (type=1)</strong><br>
+        相关度最高的主题流。顶置精确匹配的权威账号卡片，下方聚合热门微博、多图及视频。
+      </div>
+      <div class="desc-card">
+        <strong>2. 实时 (type=61)</strong><br>
+        微博核心体验。严格按发博时间秒级倒序，显示最新讨论、原汁原味普通用户发言，无算法重排。
+      </div>
+      <div class="desc-card">
+        <strong>3. 用户 (type=3)</strong><br>
+        博主检索流。展示大头像、大V认证标、粉丝量、简介与即时关注按钮，直接跳转博主主页。
+      </div>
+    </div>
+  </div>
+
+  <!-- 原型机展示区 -->
+  <div class="showcase-container" id="showcaseContainer">
+
+    <!-- 机型 1: 综合 (Comprehensive) -->
+    <div class="phone-mockup" id="phone1">
+      <div class="camera-hole"></div>
+      <div class="status-bar">
+        <span>11:42</span>
+        <div class="status-icons">5G · 98%</div>
+      </div>
+
+      <div class="search-header">
+        <div class="search-bar-row">
+          <div class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </div>
+          <div class="search-input-box">
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input type="text" value="钟文泽" readonly>
+            <div class="clear-icon">✕</div>
+          </div>
+        </div>
+
+        <div class="tabs-strip">
+          <div class="tab-item active" onclick="selectTab(0, this)">综合</div>
+          <div class="tab-item" onclick="selectTab(1, this)">实时</div>
+          <div class="tab-item" onclick="selectTab(2, this)">用户</div>
+          <div class="tab-item" onclick="selectTab(3, this)">视频</div>
+          <div class="tab-item" onclick="selectTab(4, this)">图片</div>
+        </div>
+      </div>
+
+      <div class="feed-scroll">
+        <!-- 精选权威博主置顶卡片 -->
+        <div class="user-highlight-card">
+          <div class="user-info-cluster">
+            <div class="avatar-wrap">
+              <div class="avatar" style="background:#3C4F44; display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;">泽</div>
+              <div class="v-badge">V</div>
+            </div>
+            <div class="user-meta-texts">
+              <div class="user-name">钟文泽 <span style="font-size:11px;font-weight:normal;color:#E8A838;">知名数码博主</span></div>
+              <div class="user-sub">粉丝 432.8万 · 微博 1.2万</div>
+            </div>
+          </div>
+          <button class="follow-btn followed">已关注</button>
+        </div>
+
+        <!-- 综合博文 1 -->
+        <div class="tweet-card">
+          <div class="tweet-header">
+            <div class="author-cluster">
+              <div class="author-avatar" style="background:#3C4F44; display:flex;align-items:center;justify-content:center;color:#fff;font-size:13px;font-weight:bold;">泽</div>
+              <div class="author-texts">
+                <h4>钟文泽</h4>
+                <div class="author-time">4小时前 · 来自 iPhone 18 Pro</div>
+              </div>
+            </div>
+          </div>
+          <div class="tweet-body">
+            打卡梅兰芳故居。这套四合院是 1951 年国家分配给梅兰芳的，他在这里居住到 1961 年，一共居住了 10 年...
+          </div>
+          <div class="image-grid cols-3">
+            <div class="grid-img" style="background:#4A5950;"></div>
+            <div class="grid-img" style="background:#55665C;"></div>
+            <div class="grid-img" style="background:#3A4740;"></div>
+          </div>
+          <div class="tweet-footer">
+            <div class="action-btn">转发 12</div>
+            <div class="action-btn">评论 124</div>
+            <div class="action-btn">赞 636</div>
+          </div>
+        </div>
+
+        <!-- 综合博文 2 (视频) -->
+        <div class="tweet-card">
+          <div class="tweet-header">
+            <div class="author-cluster">
+              <div class="author-avatar" style="background:#314439;"></div>
+              <div class="author-texts">
+                <h4>数码新观察</h4>
+                <div class="author-time">昨天 19:20 · 微博视频号</div>
+              </div>
+            </div>
+          </div>
+          <div class="tweet-body">
+            来看<span class="highlight-keyword">@钟文泽</span> 最新的超大杯开箱上手视频，这次机身手感和屏幕边缘光晕控制确实惊艳。
+          </div>
+          <div class="video-cover-card">
+            <div class="play-circle">▶</div>
+            <div class="duration-badge">08:45</div>
+          </div>
+          <div class="tweet-footer">
+            <div class="action-btn">转发 86</div>
+            <div class="action-btn">评论 312</div>
+            <div class="action-btn">赞 2108</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-indicator"></div>
+      <div class="prototype-label">综合 (type=1) 页面</div>
+    </div>
+
+    <!-- 机型 2: 实时 (Real-time) -->
+    <div class="phone-mockup" id="phone2">
+      <div class="camera-hole"></div>
+      <div class="status-bar">
+        <span>11:42</span>
+        <div class="status-icons">5G · 98%</div>
+      </div>
+
+      <div class="search-header">
+        <div class="search-bar-row">
+          <div class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </div>
+          <div class="search-input-box">
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input type="text" value="钟文泽" readonly>
+            <div class="clear-icon">✕</div>
+          </div>
+        </div>
+
+        <div class="tabs-strip">
+          <div class="tab-item">综合</div>
+          <div class="tab-item active">实时</div>
+          <div class="tab-item">用户</div>
+          <div class="tab-item">视频</div>
+          <div class="tab-item">图片</div>
+        </div>
+      </div>
+
+      <div class="sub-filter-row">
+        <span>按发布时间倒序排列</span>
+        <div class="filter-tag">最新更新 · 12秒前</div>
+      </div>
+
+      <div class="feed-scroll">
+        <!-- 实时微博 1 -->
+        <div class="tweet-card">
+          <div class="tweet-header">
+            <div class="author-cluster">
+              <div class="author-avatar" style="background:#5B6B62;"></div>
+              <div class="author-texts">
+                <h4>小李爱喝热可可</h4>
+                <div class="author-time">1分钟前 · 来自 鸿蒙设备</div>
+              </div>
+            </div>
+          </div>
+          <div class="tweet-body">
+            刚刚看了<span class="highlight-keyword">钟文泽</span> 的梅兰芳故居微博，原来那个年代的四合院布局还有这些讲究，院子里那棵柿子树拍得真有味道！
+          </div>
+          <div class="tweet-footer">
+            <div class="action-btn">转发</div>
+            <div class="action-btn">评论 1</div>
+            <div class="action-btn">赞 2</div>
+          </div>
+        </div>
+
+        <!-- 实时微博 2 -->
+        <div class="tweet-card">
+          <div class="tweet-header">
+            <div class="author-cluster">
+              <div class="author-avatar" style="background:#48564D;"></div>
+              <div class="author-texts">
+                <h4>极客日常圈</h4>
+                <div class="author-time">4分钟前 · 来自 Android</div>
+              </div>
+            </div>
+          </div>
+          <div class="tweet-body">
+            今天刷到好几条关于新旗舰的讨论，不知道小泽什么时候出续航实测，坐等评测更新！
+          </div>
+          <div class="tweet-footer">
+            <div class="action-btn">转发 1</div>
+            <div class="action-btn">评论 5</div>
+            <div class="action-btn">赞 14</div>
+          </div>
+        </div>
+
+        <!-- 实时微博 3 -->
+        <div class="tweet-card">
+          <div class="tweet-header">
+            <div class="author-cluster">
+              <div class="author-avatar" style="background:#3C4F44;"></div>
+              <div class="author-texts">
+                <h4>摄影师老陈</h4>
+                <div class="author-time">11分钟前 · 来自 普通家庭</div>
+              </div>
+            </div>
+          </div>
+          <div class="tweet-body">
+            今天北京天气特别透，同款梅兰芳纪念馆打卡走起，光影太绝了。
+          </div>
+          <div class="image-grid cols-2">
+            <div class="grid-img" style="background:#44574C;"></div>
+            <div class="grid-img" style="background:#506659;"></div>
+          </div>
+          <div class="tweet-footer">
+            <div class="action-btn">转发</div>
+            <div class="action-btn">评论 3</div>
+            <div class="action-btn">赞 9</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="home-indicator"></div>
+      <div class="prototype-label">实时 (type=61) 页面</div>
+    </div>
+
+    <!-- 机型 3: 用户 (User) -->
+    <div class="phone-mockup" id="phone3">
+      <div class="camera-hole"></div>
+      <div class="status-bar">
+        <span>11:42</span>
+        <div class="status-icons">5G · 98%</div>
+      </div>
+
+      <div class="search-header">
+        <div class="search-bar-row">
+          <div class="back-btn">
+            <svg viewBox="0 0 24 24"><path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/></svg>
+          </div>
+          <div class="search-input-box">
+            <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></svg>
+            <input type="text" value="钟文泽" readonly>
+            <div class="clear-icon">✕</div>
+          </div>
+        </div>
+
+        <div class="tabs-strip">
+          <div class="tab-item">综合</div>
+          <div class="tab-item">实时</div>
+          <div class="tab-item active">用户</div>
+          <div class="tab-item">视频</div>
+          <div class="tab-item">图片</div>
+        </div>
+      </div>
+
+      <div class="feed-scroll">
+        <!-- 用户条目 1 -->
+        <div class="user-list-item">
+          <div class="avatar-wrap">
+            <div class="avatar" style="background:#3C4F44; display:flex;align-items:center;justify-content:center;color:#fff;font-size:20px;font-weight:700;">泽</div>
+            <div class="v-badge">V</div>
+          </div>
+          <div class="user-details">
+            <h3>钟文泽 <span style="font-size:11px;font-weight:normal;color:#E8A838;">知名数码博主</span></h3>
+            <div class="user-desc-text">科技数码博主，视频创作者。普通家庭iPhone用户。合作请私信。</div>
+            <div class="user-counts">
+              <span>粉丝 432.8万</span>
+              <span>微博 12,410</span>
+            </div>
+          </div>
+          <button class="follow-btn followed">已关注</button>
+        </div>
+
+        <!-- 用户条目 2 -->
+        <div class="user-list-item">
+          <div class="avatar-wrap">
+            <div class="avatar" style="background:#4A5E53; display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">工作室</div>
+            <div class="v-badge" style="background:#3880E8;">B</div>
+          </div>
+          <div class="user-details">
+            <h3>钟文泽工作室 <span style="font-size:11px;font-weight:normal;color:#7BA8FF;">企业认证</span></h3>
+            <div class="user-desc-text">钟文泽团队官方账号，发布商务合作、幕后花絮及招聘信息。</div>
+            <div class="user-counts">
+              <span>粉丝 18.6万</span>
+              <span>微博 842</span>
+            </div>
+          </div>
+          <button class="follow-btn">+ 关注</button>
+        </div>
+
+        <!-- 用户条目 3 -->
+        <div class="user-list-item">
+          <div class="avatar-wrap">
+            <div class="avatar" style="background:#5E6E64; display:flex;align-items:center;justify-content:center;color:#fff;font-size:16px;">后援</div>
+          </div>
+          <div class="user-details">
+            <h3>钟文泽粉丝后援后备群</h3>
+            <div class="user-desc-text">小泽视频观众讨论交流小组，数码爱好者日常。</div>
+            <div class="user-counts">
+              <span>粉丝 3.2万</span>
+              <span>微博 218</span>
+            </div>
+          </div>
+          <button class="follow-btn">+ 关注</button>
+        </div>
+      </div>
+
+      <div class="home-indicator"></div>
+      <div class="prototype-label">用户 (type=3) 页面</div>
+    </div>
+
+  </div>
+
+  <script>
+    function toggleTheme() {
+      const body = document.body;
+      const current = body.getAttribute('data-theme');
+      const next = current === 'dark' ? 'light' : 'dark';
+      body.setAttribute('data-theme', next);
+    }
+
+    function switchView(mode) {
+      const container = document.getElementById('showcaseContainer');
+      const p1 = document.getElementById('phone1');
+      const p2 = document.getElementById('phone2');
+      const p3 = document.getElementById('phone3');
+      const btnSide = document.getElementById('modeSide');
+      const btnSingle = document.getElementById('modeSingle');
+
+      if (mode === 'single') {
+        p2.style.display = 'none';
+        p3.style.display = 'none';
+        p1.style.transform = 'scale(1.05)';
+        btnSingle.classList.add('active');
+        btnSide.classList.remove('active');
+      } else {
+        p2.style.display = 'flex';
+        p3.style.display = 'flex';
+        p1.style.transform = 'none';
+        btnSide.classList.add('active');
+        btnSingle.classList.remove('active');
+      }
+    }
+  </script>
+</body>
+</html>

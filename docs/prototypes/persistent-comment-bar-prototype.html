@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo 微博详情页 · 常驻评论底栏重构原型</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --brand-hover: #439669;
+      --brand-light: #EBF7F0;
+      --brand-border: rgba(78, 170, 120, 0.35);
+      --bg: #F4F7F5;
+      --bg-card: #FFFFFF;
+      --bg-capsule: #EEF3F0;
+      --bg-elevated: #F8FAF9;
+      --text-primary: #18231E;
+      --text-secondary: #5C6E65;
+      --text-tertiary: #92A39B;
+      --border-color: rgba(0, 0, 0, 0.06);
+      --glass-bg: rgba(255, 255, 255, 0.88);
+      --glass-border: rgba(255, 255, 255, 0.6);
+      --glass-shadow: 0 8px 32px rgba(18, 40, 28, 0.08);
+      --like-color: #E05252;
+      --font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans", "Segoe UI", sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0C120F;
+      --bg-card: #151D18;
+      --bg-capsule: #1C2721;
+      --bg-elevated: #1F2B24;
+      --text-primary: #E9EFEA;
+      --text-secondary: #8D9E94;
+      --text-tertiary: #526359;
+      --border-color: rgba(255, 255, 255, 0.08);
+      --glass-bg: rgba(21, 29, 24, 0.88);
+      --glass-border: rgba(255, 255, 255, 0.1);
+      --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+      --brand-light: rgba(78, 170, 120, 0.16);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-family);
+      background: #111413;
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+    }
+
+    /* 顶部控制栏 */
+    .prototype-header {
+      width: 100%;
+      max-width: 860px;
+      margin-bottom: 20px;
+      color: #E2E8E4;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .prototype-title h2 {
+      font-size: 19px;
+      font-weight: 700;
+      color: #FFFFFF;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .prototype-title h2 span.badge {
+      font-size: 11px;
+      padding: 2px 8px;
+      background: var(--brand);
+      color: white;
+      border-radius: 999px;
+    }
+
+    .prototype-title p {
+      font-size: 13px;
+      color: #90A096;
+      margin-top: 4px;
+    }
+
+    .control-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .btn-control {
+      padding: 6px 14px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: 500;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.08);
+      color: #D6E0D9;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      transition: all 0.2s ease;
+    }
+
+    .btn-control:hover, .btn-control.active {
+      background: var(--brand);
+      border-color: var(--brand);
+      color: white;
+    }
+
+    /* 手机外壳容器 */
+    .device-stage {
+      position: relative;
+      width: 390px;
+      height: 844px;
+      background: var(--bg);
+      border-radius: 50px;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.7), 0 0 0 10px #2A302D, 0 0 0 12px #181C1A;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.3s ease;
+    }
+
+    /* 顶部状态栏 */
+    .status-bar {
+      height: 44px;
+      padding: 0 28px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-primary);
+      z-index: 30;
+      flex-shrink: 0;
+    }
+
+    /* 导航栏 */
+    .nav-bar {
+      height: 48px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border-color);
+      flex-shrink: 0;
+      z-index: 25;
+    }
+
+    .nav-back-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg-capsule);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .nav-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .nav-action-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg-capsule);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    /* 滚动主内容区 */
+    .content-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding-bottom: 96px; /* 为常驻底栏留空 */
+      scroll-behavior: smooth;
+    }
+
+    .content-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 微博正文卡片 */
+    .post-card {
+      background: var(--bg-card);
+      padding: 16px;
+      margin-bottom: 10px;
+    }
+
+    .author-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    .avatar {
+      width: 44px;
+      height: 44px;
+      border-radius: 50%;
+      object-fit: cover;
+      background: var(--brand-light);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--brand);
+      font-weight: 700;
+      font-size: 16px;
+      overflow: hidden;
+    }
+
+    .avatar img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .author-meta {
+      flex: 1;
+    }
+
+    .author-name {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .author-tag {
+      font-size: 10px;
+      background: var(--brand-light);
+      color: var(--brand);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .author-time {
+      font-size: 12px;
+      color: var(--text-tertiary);
+      margin-top: 2px;
+    }
+
+    .post-text {
+      font-size: 15px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      margin-bottom: 12px;
+    }
+
+    .post-text a {
+      color: var(--brand);
+      text-decoration: none;
+    }
+
+    .post-media-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 12px;
+    }
+
+    .post-media-grid img {
+      width: 100%;
+      height: 140px;
+      object-fit: cover;
+      border-radius: 8px;
+      background: var(--bg-capsule);
+    }
+
+    .post-stats-row {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      padding-top: 10px;
+      border-top: 1px solid var(--border-color);
+    }
+
+    /* 评论区分隔条 */
+    .comments-header-bar {
+      background: var(--bg);
+      padding: 14px 16px 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .comments-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .comments-sort-tabs {
+      display: flex;
+      gap: 12px;
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    .comments-sort-tabs span.active {
+      color: var(--brand);
+      font-weight: 700;
+    }
+
+    /* 评论列表 */
+    .comment-item {
+      background: var(--bg-card);
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--border-color);
+      display: flex;
+      gap: 12px;
+    }
+
+    .comment-avatar {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--bg-capsule);
+      flex-shrink: 0;
+      overflow: hidden;
+    }
+
+    .comment-body {
+      flex: 1;
+    }
+
+    .comment-user-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 4px;
+    }
+
+    .comment-user-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .comment-like-btn {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 12px;
+      color: var(--text-tertiary);
+      cursor: pointer;
+    }
+
+    .comment-content {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-primary);
+      margin-bottom: 6px;
+    }
+
+    .comment-footer-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 11px;
+      color: var(--text-tertiary);
+    }
+
+    .comment-reply-pill {
+      background: var(--bg-capsule);
+      color: var(--text-secondary);
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 500;
+      cursor: pointer;
+    }
+
+    /* ========================================================
+       核心：三种常驻评论底栏设计风格
+       ======================================================== */
+
+    .bottom-composer-wrapper {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      z-index: 50;
+      padding: 0 14px 22px; /* 预留底部小白条间距 */
+      pointer-events: none; /* 穿透周围 */
+      transition: transform 0.28s cubic-bezier(0.4, 0, 0.2, 1), opacity 0.28s;
+    }
+
+    .bottom-composer-wrapper.hidden {
+      transform: translateY(110%);
+      opacity: 0;
+    }
+
+    .dock-container {
+      pointer-events: auto;
+      background: var(--glass-bg);
+      backdrop-filter: blur(28px) saturate(180%);
+      -webkit-backdrop-filter: blur(28px) saturate(180%);
+      border: 1px solid var(--glass-border);
+      border-radius: 36px;
+      box-shadow: var(--glass-shadow);
+      padding: 7px 10px 7px 12px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      transition: all 0.25s ease;
+    }
+
+    /* ---- 风格 1：极致灵动社交坞 (Sleek Input + Social Trio) ---- */
+    .style-1 .input-capsule {
+      flex: 1;
+      height: 42px;
+      background: var(--bg-capsule);
+      border-radius: 21px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 8px;
+      cursor: pointer;
+      border: 1px solid transparent;
+      transition: all 0.2s ease;
+    }
+
+    .style-1 .input-capsule:hover {
+      border-color: var(--brand-border);
+      background: var(--bg-card);
+    }
+
+    .style-1 .input-capsule svg {
+      width: 17px;
+      height: 17px;
+      fill: var(--text-tertiary);
+    }
+
+    .style-1 .placeholder-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .style-1 .social-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .style-1 .action-icon-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      position: relative;
+      color: var(--text-secondary);
+      transition: transform 0.15s, background 0.15s;
+    }
+
+    .style-1 .action-icon-btn:active {
+      transform: scale(0.9);
+      background: var(--bg-capsule);
+    }
+
+    .style-1 .action-icon-btn svg {
+      width: 20px;
+      height: 20px;
+      fill: currentColor;
+    }
+
+    .style-1 .action-icon-btn.liked {
+      color: var(--like-color);
+    }
+
+    .style-1 .action-icon-btn.liked svg {
+      fill: var(--like-color);
+    }
+
+    .style-1 .action-badge {
+      position: absolute;
+      top: 3px;
+      right: 2px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-tertiary);
+      min-width: 14px;
+      text-align: center;
+    }
+
+    .style-1 .action-icon-btn.liked .action-badge {
+      color: var(--like-color);
+    }
+
+    /* ---- 风格 2：纯粹创作坞 (Composer Focus: Input + Media + Send) ---- */
+    .style-2 .dock-container {
+      padding: 6px 8px 6px 14px;
+      gap: 8px;
+    }
+
+    .style-2 .input-capsule {
+      flex: 1;
+      height: 44px;
+      background: var(--bg-capsule);
+      border-radius: 22px;
+      display: flex;
+      align-items: center;
+      padding: 0 14px;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    .style-2 .placeholder-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+      flex: 1;
+    }
+
+    .style-2 .tool-btn {
+      width: 38px;
+      height: 38px;
+      border-radius: 50%;
+      background: var(--bg-capsule);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+      transition: all 0.18s;
+    }
+
+    .style-2 .tool-btn:hover {
+      color: var(--brand);
+    }
+
+    .style-2 .tool-btn svg {
+      width: 19px;
+      height: 19px;
+      fill: currentColor;
+    }
+
+    .style-2 .send-capsule-btn {
+      height: 38px;
+      padding: 0 16px;
+      border-radius: 19px;
+      background: var(--brand);
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      border: none;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(78, 170, 120, 0.35);
+      transition: all 0.2s;
+    }
+
+    .style-2 .send-capsule-btn:active {
+      transform: scale(0.96);
+    }
+
+    .style-2 .send-capsule-btn svg {
+      width: 14px;
+      height: 14px;
+      fill: white;
+    }
+
+    /* ---- 风格 3：一体流光胶囊 (Unified All-in-One Capsule) ---- */
+    .style-3 .dock-container {
+      padding: 5px 6px 5px 6px;
+      gap: 6px;
+      background: var(--bg-card);
+      border: 1.5px solid var(--brand);
+      box-shadow: 0 8px 30px rgba(78, 170, 120, 0.16);
+    }
+
+    .style-3 .avatar-mini {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--brand-light);
+      color: var(--brand);
+      font-weight: 700;
+      font-size: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-left: 4px;
+    }
+
+    .style-3 .input-center {
+      flex: 1;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      padding: 0 8px;
+      cursor: pointer;
+    }
+
+    .style-3 .placeholder-text {
+      font-size: 14px;
+      color: var(--text-secondary);
+    }
+
+    .style-3 .emoji-trigger-btn {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: transparent;
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+    }
+
+    .style-3 .send-circle-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: var(--brand);
+      border: none;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: white;
+      box-shadow: 0 4px 12px rgba(78, 170, 120, 0.38);
+    }
+
+    .style-3 .send-circle-btn svg {
+      width: 17px;
+      height: 17px;
+      fill: white;
+    }
+
+    /* 底部手势指示条 */
+    .home-indicator {
+      position: absolute;
+      bottom: 8px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 134px;
+      height: 5px;
+      background: var(--text-primary);
+      opacity: 0.28;
+      border-radius: 3px;
+      z-index: 60;
+      pointer-events: none;
+    }
+
+    /* 弹出输入浮层 (Sheet Editor Preview) */
+    .sheet-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.45);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      z-index: 100;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-end;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.25s ease;
+    }
+
+    .sheet-overlay.open {
+      opacity: 1;
+      pointer-events: auto;
+    }
+
+    .floating-sheet-card {
+      background: var(--glass-bg);
+      backdrop-filter: blur(35px) saturate(180%);
+      -webkit-backdrop-filter: blur(35px) saturate(180%);
+      border-top: 1px solid var(--glass-border);
+      border-radius: 26px 26px 0 0;
+      box-shadow: 0 -10px 40px rgba(0,0,0,0.25);
+      padding: 16px 18px 30px;
+      transform: translateY(100%);
+      transition: transform 0.28s cubic-bezier(0.32, 1, 0.32, 1);
+    }
+
+    .sheet-overlay.open .floating-sheet-card {
+      transform: translateY(0);
+    }
+
+    .sheet-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 12px;
+    }
+
+    .sheet-title {
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .sheet-close-btn {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--bg-capsule);
+      border: none;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-secondary);
+    }
+
+    .sheet-textarea {
+      width: 100%;
+      height: 90px;
+      border: none;
+      background: var(--bg-capsule);
+      border-radius: 16px;
+      padding: 12px 14px;
+      font-size: 15px;
+      font-family: inherit;
+      color: var(--text-primary);
+      resize: none;
+      outline: none;
+      margin-bottom: 12px;
+    }
+
+    .sheet-textarea:focus {
+      box-shadow: 0 0 0 1.5px var(--brand);
+    }
+
+    .sheet-quick-emojis {
+      display: flex;
+      justify-content: space-between;
+      padding: 4px 6px 12px;
+      font-size: 22px;
+      cursor: pointer;
+    }
+
+    .sheet-quick-emojis span {
+      transition: transform 0.15s;
+    }
+
+    .sheet-quick-emojis span:active {
+      transform: scale(1.3);
+    }
+
+    .sheet-bottom-toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .sheet-tools {
+      display: flex;
+      gap: 12px;
+    }
+
+    .sheet-tool-icon {
+      width: 34px;
+      height: 34px;
+      border-radius: 50%;
+      background: var(--bg-capsule);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      color: var(--text-secondary);
+    }
+
+    .sheet-publish-btn {
+      padding: 8px 20px;
+      border-radius: 20px;
+      background: var(--brand);
+      color: white;
+      font-size: 14px;
+      font-weight: 700;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(78, 170, 120, 0.35);
+    }
+
+    /* 说明面板卡片 */
+    .specs-panel {
+      width: 100%;
+      max-width: 860px;
+      margin-top: 24px;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .spec-card {
+      background: #18201C;
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 16px;
+      padding: 16px;
+      color: #CAD5CE;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .spec-card.selected {
+      border-color: var(--brand);
+      background: #1B2921;
+      box-shadow: 0 4px 20px rgba(78, 170, 120, 0.2);
+    }
+
+    .spec-card h3 {
+      font-size: 15px;
+      color: #FFFFFF;
+      margin-bottom: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .spec-card p {
+      font-size: 12px;
+      line-height: 1.5;
+      color: #8E9F95;
+    }
+
+    .spec-card .tag-rec {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: var(--brand);
+      color: white;
+    }
+
+    @media (max-width: 768px) {
+      .specs-panel {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body data-theme="light">
+
+  <!-- 顶部调试控制栏 -->
+  <div class="prototype-header">
+    <div class="prototype-title">
+      <h2>Fluo 详情页常驻评论底栏重构原型 <span class="badge">ArkUI Native</span></h2>
+      <p>解决原底栏 5 个圆形挤占空间、视觉割裂、只回主贴与状态混淆问题</p>
+    </div>
+    <div class="control-group">
+      <button class="btn-control active" id="btnTheme" onclick="toggleTheme()">
+        <span id="themeText">切换暗色模式</span>
+      </button>
+      <button class="btn-control" id="btnScrollHide" onclick="toggleScrollHide()">
+        <span>模拟滑动收起底栏</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 手机外壳容器 -->
+  <div class="device-stage" id="deviceStage">
+
+    <!-- 顶部状态栏 -->
+    <div class="status-bar">
+      <span>10:24</span>
+      <div style="display:flex; gap:6px; align-items:center;">
+        <span>5G</span>
+        <div style="width:20px; height:10px; border:1px solid currentColor; border-radius:3px; padding:1px;">
+          <div style="width:70%; height:100%; background:currentColor; border-radius:1px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 详情页导航栏 -->
+    <div class="nav-bar">
+      <div class="nav-back-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+      </div>
+      <div class="nav-title">正文</div>
+      <div class="nav-action-btn">
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </div>
+    </div>
+
+    <!-- 页面可滚动正文内容 -->
+    <div class="content-scroll" id="contentScroll">
+
+      <!-- 微博主卡片 -->
+      <div class="post-card">
+        <div class="author-row">
+          <div class="avatar">
+            <span>F</span>
+          </div>
+          <div class="author-meta">
+            <div class="author-name">
+              <span>Fluo官方团队</span>
+              <span class="author-tag">开发者</span>
+            </div>
+            <div class="author-time">今天 09:42 · HarmonyOS NEXT</div>
+          </div>
+        </div>
+
+        <div class="post-text">
+          全新设计的 <b>Fluo</b> 微博详情页常驻评论框现已进入原型阶段！去除了原版拥挤的多圆纽布局，统一使用自然透亮的毛玻璃悬浮坞与温和鼠尾草薄荷绿，打字更从容、互动更直观。欢迎各位体验并反馈！🌿✨
+        </div>
+
+        <div class="post-media-grid">
+          <div style="background:linear-gradient(135deg, #4EAA78, #88D4AB); height:140px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:white; font-weight:700;">
+            Fluo Architecture
+          </div>
+          <div style="background:linear-gradient(135deg, #3B82F6, #93C5FD); height:140px; border-radius:8px; display:flex; align-items:center; justify-content:center; color:white; font-weight:700;">
+            ArkUI Components
+          </div>
+        </div>
+
+        <div class="post-stats-row">
+          <span>1,284 浏览</span>
+          <span>·</span>
+          <span>128 转发</span>
+          <span>·</span>
+          <span>42 收藏</span>
+        </div>
+      </div>
+
+      <!-- 评论区头部 -->
+      <div class="comments-header-bar">
+        <div class="comments-title">
+          <span>全部评论</span>
+          <span style="font-size:12px; color:var(--text-tertiary); font-weight:500;">(24)</span>
+        </div>
+        <div class="comments-sort-tabs">
+          <span class="active">按热度</span>
+          <span>按时间</span>
+        </div>
+      </div>
+
+      <!-- 评论列表项 1 -->
+      <div class="comment-item">
+        <div class="comment-avatar" style="background:#E2F0D9; display:flex; align-items:center; justify-content:center; color:#3E8B5E; font-weight:700;">
+          鸿
+        </div>
+        <div class="comment-body">
+          <div class="comment-user-row">
+            <span class="comment-user-name">鸿蒙极客</span>
+            <div class="comment-like-btn" onclick="toggleCommentLike(this)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span>18</span>
+            </div>
+          </div>
+          <div class="comment-content">
+            这个常驻评论框比之前清爽太多了！底部悬浮悬空恰到好处，不遮挡内容。
+          </div>
+          <div class="comment-footer-row">
+            <span>22分钟前</span>
+            <span class="comment-reply-pill" onclick="openReplyEditor('鸿蒙极客')">回复</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 评论列表项 2 -->
+      <div class="comment-item">
+        <div class="comment-avatar" style="background:#E0F2FE; display:flex; align-items:center; justify-content:center; color:#0284C7; font-weight:700;">
+          海
+        </div>
+        <div class="comment-body">
+          <div class="comment-user-row">
+            <span class="comment-user-name">海浪之音</span>
+            <div class="comment-like-btn" onclick="toggleCommentLike(this)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span>9</span>
+            </div>
+          </div>
+          <div class="comment-content">
+            点赞、收藏和回复主博分开，逻辑非常清晰，再也不怕误触回复别人了！
+          </div>
+          <div class="comment-footer-row">
+            <span>45分钟前</span>
+            <span class="comment-reply-pill" onclick="openReplyEditor('海浪之音')">回复</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 评论列表项 3 -->
+      <div class="comment-item">
+        <div class="comment-avatar" style="background:#FEF3C7; display:flex; align-items:center; justify-content:center; color:#D97706; font-weight:700;">
+          星
+        </div>
+        <div class="comment-body">
+          <div class="comment-user-row">
+            <span class="comment-user-name">星光漫步者</span>
+            <div class="comment-like-btn" onclick="toggleCommentLike(this)">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span>4</span>
+            </div>
+          </div>
+          <div class="comment-content">
+            支持！希望尽快上线真机版本！
+          </div>
+          <div class="comment-footer-row">
+            <span>1小时前</span>
+            <span class="comment-reply-pill" onclick="openReplyEditor('星光漫步者')">回复</span>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- ========================================================
+         常驻底栏宿主容器 (支持三种风格动态切换)
+         ======================================================== -->
+    <div class="bottom-composer-wrapper style-1" id="bottomComposer">
+
+      <!-- 内部底栏容器 (JavaScript 动态替换内部结构) -->
+      <div class="dock-container" id="dockContainer">
+        <!-- 默认风格 1 内容由 JS 初始化注入 -->
+      </div>
+
+    </div>
+
+    <!-- 底部手势小白条 -->
+    <div class="home-indicator"></div>
+
+    <!-- 点击常驻底栏弹出的全功能 Sheet 浮层 -->
+    <div class="sheet-overlay" id="sheetOverlay" onclick="closeSheetOutside(event)">
+      <div class="floating-sheet-card" onclick="event.stopPropagation()">
+        <div class="sheet-header-row">
+          <span class="sheet-title" id="sheetReplyTitle">评论微博</span>
+          <button class="sheet-close-btn" onclick="closeSheet()">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          </button>
+        </div>
+
+        <textarea class="sheet-textarea" id="sheetTextarea" placeholder="发布你的评论，友好交流…"></textarea>
+
+        <!-- 快捷表情条 -->
+        <div class="sheet-quick-emojis">
+          <span onclick="insertEmoji('😆')">😆</span>
+          <span onclick="insertEmoji('😮')">😮</span>
+          <span onclick="insertEmoji('🥺')">🥺</span>
+          <span onclick="insertEmoji('😭')">😭</span>
+          <span onclick="insertEmoji('😋')">😋</span>
+          <span onclick="insertEmoji('😚')">😚</span>
+          <span onclick="insertEmoji('🙂')">🙂</span>
+          <span onclick="insertEmoji('😍')">😍</span>
+        </div>
+
+        <!-- 底部发布工具栏 -->
+        <div class="sheet-bottom-toolbar">
+          <div class="sheet-tools">
+            <div class="sheet-tool-icon" title="添加配图" onclick="alert('配图选择器')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>
+            </div>
+            <div class="sheet-tool-icon" title="表情面板" onclick="alert('全量微博表情面板')">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/></svg>
+            </div>
+            <div class="sheet-tool-icon" title="@好友">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="4"/><path d="M16 8v5a3 3 0 0 0 6 0v-1a10 10 0 1 0-3.92 7.94"/></svg>
+            </div>
+          </div>
+          <button class="sheet-publish-btn" onclick="submitComment()">发送</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- 下方方案说明选择卡片 -->
+  <div class="specs-panel">
+    <div class="spec-card selected" id="cardStyle1" onclick="switchStyle('1')">
+      <h3>方案 1：极致灵动社交坞 <span class="tag-rec">推荐</span></h3>
+      <p><b>左侧大胶囊输入 + 右侧主贴三大互动（赞 / 藏 / 享）</b>。<br>符合主流大厂顶级体验，打字与点赞互不冲突，常驻栏只服务于主贴互动，轻触直接呼起输入面板。</p>
+    </div>
+
+    <div class="spec-card" id="cardStyle2" onclick="switchStyle('2')">
+      <h3>方案 2：纯粹专注创作坞</h3>
+      <p><b>长胶囊输入 + 配图 + 表情 + 独立发送胶囊</b>。<br>聚焦评论创作本身，不承载主贴点赞。输入框始终明确提示“写评论…”，右侧直接提供图片与表情快捷入口。</p>
+    </div>
+
+    <div class="spec-card" id="cardStyle3" onclick="switchStyle('3')">
+      <h3>方案 3：一体流光微胶囊</h3>
+      <p><b>微头像 + 居中长胶囊 + 尾部微圆发送纽</b>。<br>一体成型的连续悬浮跑道圆胶囊，带有薄荷绿主题细轮廓与柔光阴影，形态紧凑、极致原生感。</p>
+    </div>
+  </div>
+
+  <script>
+    let currentStyle = '1';
+    let isDark = false;
+    let isPostLiked = false;
+    let isPostStarred = false;
+    let likeCount = 286;
+    let starCount = 42;
+
+    // 渲染不同的常驻底栏风格
+    function renderDock() {
+      const wrapper = document.getElementById('bottomComposer');
+      const container = document.getElementById('dockContainer');
+      wrapper.className = `bottom-composer-wrapper style-${currentStyle}`;
+
+      if (currentStyle === '1') {
+        container.innerHTML = `
+          <div class="input-capsule" onclick="openRootEditor()">
+            <svg viewBox="0 0 24 24"><path d="M3 17.25V21h3.75L17.81 9.94l-3.75-3.75L3 17.25zM20.71 7.04c.39-.39.39-1.02 0-1.41l-2.34-2.34c-.39-.39-1.02-.39-1.41 0l-1.83 1.83 3.75 3.75 1.83-1.83z"/></svg>
+            <span class="placeholder-text">写评论…</span>
+          </div>
+          <div class="social-actions-group">
+            <button class="action-icon-btn ${isPostLiked ? 'liked' : ''}" onclick="togglePostLike(event)" title="点赞">
+              <svg viewBox="0 0 24 24"><path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"/></svg>
+              <span class="action-badge" id="badgeLike">${likeCount}</span>
+            </button>
+            <button class="action-icon-btn ${isPostStarred ? 'starred' : ''}" onclick="togglePostStar(event)" title="收藏" style="${isPostStarred ? 'color:#F59E0B;' : ''}">
+              <svg viewBox="0 0 24 24"><path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>
+              <span class="action-badge">${starCount}</span>
+            </button>
+            <button class="action-icon-btn" onclick="alert('分享微博')" title="分享">
+              <svg viewBox="0 0 24 24"><path d="M18 16.08c-.76 0-1.44.3-1.96.77L8.91 12.7c.05-.23.09-.46.09-.7s-.04-.47-.09-.7l7.05-4.11c.54.5 1.25.81 2.04.81 1.66 0 3-1.34 3-3s-1.34-3-3-3-3 1.34-3 3c0 .24.04.47.09.7L8.04 9.81C7.5 9.31 6.79 9 6 9c-1.66 0-3 1.34-3 3s1.34 3 3 3c.79 0 1.5-.31 2.04-.81l7.12 4.16c-.05.21-.08.43-.08.65 0 1.61 1.31 2.92 2.92 2.92s2.92-1.31 2.92-2.92c0-1.61-1.31-2.92-2.92-2.92z"/></svg>
+            </button>
+          </div>
+        `;
+      } else if (currentStyle === '2') {
+        container.innerHTML = `
+          <div class="input-capsule" onclick="openRootEditor()">
+            <span class="placeholder-text">说点什么吧…</span>
+          </div>
+          <button class="tool-btn" onclick="openRootEditorWithMedia()" title="插入图片">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="3" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21" fill="none" stroke="currentColor" stroke-width="2"/></svg>
+          </button>
+          <button class="tool-btn" onclick="openRootEditorWithEmoji()" title="快捷表情">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M8 14s1.5 2 4 2 4-2 4-2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="9" r="1"/><circle cx="15" cy="9" r="1"/></svg>
+          </button>
+          <button class="send-capsule-btn" onclick="openRootEditor()">
+            <span>发送</span>
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        `;
+      } else if (currentStyle === '3') {
+        container.innerHTML = `
+          <div class="avatar-mini">我</div>
+          <div class="input-center" onclick="openRootEditor()">
+            <span class="placeholder-text">写评论（只回复原微博）…</span>
+          </div>
+          <button class="emoji-trigger-btn" onclick="openRootEditorWithEmoji()">
+            <span style="font-size:18px;">😀</span>
+          </button>
+          <button class="send-circle-btn" onclick="openRootEditor()">
+            <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+          </button>
+        `;
+      }
+    }
+
+    function switchStyle(style) {
+      currentStyle = style;
+      document.querySelectorAll('.spec-card').forEach(card => card.classList.remove('selected'));
+      document.getElementById('cardStyle' + style).classList.add('selected');
+      renderDock();
+    }
+
+    function toggleTheme() {
+      isDark = !isDark;
+      document.body.setAttribute('data-theme', isDark ? 'dark' : 'light');
+      document.getElementById('themeText').innerText = isDark ? '切换亮色模式' : '切换暗色模式';
+    }
+
+    function toggleScrollHide() {
+      const composer = document.getElementById('bottomComposer');
+      composer.classList.toggle('hidden');
+    }
+
+    // 点赞与收藏联动
+    function togglePostLike(e) {
+      e.stopPropagation();
+      isPostLiked = !isPostLiked;
+      likeCount += isPostLiked ? 1 : -1;
+      renderDock();
+    }
+
+    function togglePostStar(e) {
+      e.stopPropagation();
+      isPostStarred = !isPostStarred;
+      starCount += isPostStarred ? 1 : -1;
+      renderDock();
+    }
+
+    function toggleCommentLike(elem) {
+      const countSpan = elem.querySelector('span');
+      let count = parseInt(countSpan.innerText);
+      const isLiked = elem.classList.toggle('liked');
+      if (isLiked) {
+        elem.style.color = '#E05252';
+        countSpan.innerText = count + 1;
+      } else {
+        elem.style.color = '';
+        countSpan.innerText = count - 1;
+      }
+    }
+
+    // 呼出 Sheet 评论编辑器
+    function openRootEditor() {
+      document.getElementById('sheetReplyTitle').innerText = '评论微博（主帖）';
+      document.getElementById('sheetTextarea').placeholder = '说点什么吧…';
+      document.getElementById('sheetOverlay').classList.add('open');
+      setTimeout(() => document.getElementById('sheetTextarea').focus(), 150);
+    }
+
+    function openReplyEditor(userName) {
+      document.getElementById('sheetReplyTitle').innerText = `回复 @${userName}`;
+      document.getElementById('sheetTextarea').placeholder = `回复 @${userName}：`;
+      document.getElementById('sheetOverlay').classList.add('open');
+      setTimeout(() => document.getElementById('sheetTextarea').focus(), 150);
+    }
+
+    function openRootEditorWithMedia() {
+      openRootEditor();
+      setTimeout(() => alert('已自动拉起系统相册选择器'), 200);
+    }
+
+    function openRootEditorWithEmoji() {
+      openRootEditor();
+    }
+
+    function closeSheet() {
+      document.getElementById('sheetOverlay').classList.remove('open');
+    }
+
+    function closeSheetOutside(e) {
+      if (e.target.id === 'sheetOverlay') {
+        closeSheet();
+      }
+    }
+
+    function insertEmoji(emoji) {
+      const textarea = document.getElementById('sheetTextarea');
+      textarea.value += emoji;
+      textarea.focus();
+    }
+
+    function submitComment() {
+      const text = document.getElementById('sheetTextarea').value.trim();
+      if (!text) {
+        alert('请输入评论内容');
+        return;
+      }
+      alert('已发布评论：' + text);
+      document.getElementById('sheetTextarea').value = '';
+      closeSheet();
+    }
+
+    // 初始化渲染
+    renderDock();
+  </script>
+</body>
+</html>

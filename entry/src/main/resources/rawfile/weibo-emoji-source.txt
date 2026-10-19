@@ -1,0 +1,5 @@
+Emoji mappings: DimensionDev / Flare, docs/emoji.json
+https://github.com/DimensionDev/Flare/blob/master/docs/emoji.json
+Observed source Git blob: 812cc2d0aa0d28252f489a55c1c97c3d782b68c0
+Upstream repository license: AGPL-3.0; see docs/third-party/Flare-LICENSE.txt in the application source.
+Emoji artwork is served from Weibo's CDN and remains owned by the respective rights holders.

@@ -1,0 +1,1140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Fluo · 微博正文精细排版设计原型</title>
+  <style>
+    :root {
+      --brand: #4EAA78;
+      --brand-hover: #439669;
+      --brand-light: rgba(78, 170, 120, 0.12);
+      --brand-border: rgba(78, 170, 120, 0.28);
+      --brand-quote: #3D9165;
+
+      --bg: #F4F6F5;
+      --bg-card: #FFFFFF;
+      --bg-card-subtle: #F8FAF9;
+      --bg-card-quote: #F3F7F5;
+      --bg-tag: rgba(0, 0, 0, 0.04);
+      --bg-input: rgba(0, 0, 0, 0.05);
+
+      --text-primary: #191E1B;
+      --text-secondary: #616B66;
+      --text-tertiary: #9AA39E;
+      --text-lead: #111513;
+      --border-subtle: rgba(0, 0, 0, 0.06);
+
+      --font-cn: -apple-system, BlinkMacSystemFont, "PingFang SC", "HarmonyOS Sans SC", "Microsoft YaHei", sans-serif;
+      --font-en: "SF Pro Text", "SF Pro Display", "HarmonyOS Sans", "Inter", -apple-system, sans-serif;
+    }
+
+    [data-theme="dark"] {
+      --bg: #0E1310;
+      --bg-card: #161D19;
+      --bg-card-subtle: #1C2420;
+      --bg-card-quote: rgba(78, 170, 120, 0.08);
+      --bg-tag: rgba(255, 255, 255, 0.06);
+      --bg-input: rgba(255, 255, 255, 0.07);
+
+      --text-primary: #EDF2EE;
+      --text-secondary: #8E9A93;
+      --text-tertiary: #546059;
+      --text-lead: #FFFFFF;
+      --border-subtle: rgba(255, 255, 255, 0.08);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+    }
+
+    body {
+      font-family: var(--font-cn);
+      background: #0B0F0D;
+      color: #EDF2EE;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px 60px;
+    }
+
+    /* 顶部控制栏 */
+    .top-panel {
+      width: 100%;
+      max-width: 1680px;
+      background: #141B17;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 20px 24px;
+      margin-bottom: 24px;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .panel-left h1 {
+      font-size: 20px;
+      font-weight: 700;
+      color: #EDF2EE;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 6px;
+    }
+
+    .badge-pill {
+      font-size: 11px;
+      font-weight: 600;
+      background: var(--brand);
+      color: #0E1310;
+      padding: 2px 8px;
+      border-radius: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    .panel-left p {
+      font-size: 13px;
+      color: #8E9A93;
+      line-height: 1.5;
+    }
+
+    .controls-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .seg-group {
+      display: flex;
+      background: rgba(255, 255, 255, 0.06);
+      padding: 3px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .seg-btn {
+      padding: 6px 14px;
+      font-size: 12.5px;
+      font-weight: 500;
+      color: #8E9A93;
+      background: transparent;
+      border: none;
+      border-radius: 9px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .seg-btn.active {
+      background: var(--brand);
+      color: #0E1310;
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(78, 170, 120, 0.35);
+    }
+
+    .toggle-chip {
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: #8E9A93;
+      padding: 6px 12px;
+      border-radius: 10px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .toggle-chip.active {
+      background: var(--brand-light);
+      border-color: var(--brand-border);
+      color: #6EE7A8;
+    }
+
+    /* 主对比区域：多机对比与详情展示 */
+    .compare-container {
+      width: 100%;
+      max-width: 1680px;
+      display: flex;
+      gap: 20px;
+      justify-content: center;
+      align-items: flex-start;
+      flex-wrap: nowrap;
+    }
+
+    /* 手机外壳模型 */
+    .device-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      flex: 1;
+      min-width: 360px;
+      max-width: 395px;
+    }
+
+    .device-title-tag {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      color: #EDF2EE;
+    }
+
+    .tag-bubble {
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      color: #9AA39E;
+    }
+
+    .tag-bubble.rec {
+      background: rgba(78, 170, 120, 0.2);
+      color: #6EE7A8;
+      border: 1px solid rgba(78, 170, 120, 0.35);
+    }
+
+    .device-phone {
+      width: 395px;
+      height: 852px;
+      background: var(--bg);
+      border-radius: 46px;
+      border: 7px solid #232D27;
+      box-shadow: 0 25px 60px rgba(0, 0, 0, 0.65), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      position: relative;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      transition: background 0.3s;
+    }
+
+    /* 状态栏 */
+    .status-bar {
+      height: 44px;
+      padding: 0 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      z-index: 20;
+      flex-shrink: 0;
+    }
+
+    .status-icons {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+    }
+
+    /* 导航栏 */
+    .nav-bar {
+      height: 48px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      z-index: 20;
+    }
+
+    .nav-back, .nav-share {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: var(--bg-card);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+      color: var(--text-primary);
+      cursor: pointer;
+    }
+
+    .nav-title {
+      font-size: 16px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    /* 内容滚动区 */
+    .content-scroll {
+      flex: 1;
+      overflow-y: auto;
+      padding: 8px 16px 80px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .content-scroll::-webkit-scrollbar {
+      display: none;
+    }
+
+    /* 微博主卡片 */
+    .post-card {
+      background: var(--bg-card);
+      border-radius: 24px;
+      padding: 18px 16px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+      border: 1px solid var(--border-subtle);
+      transition: all 0.3s;
+    }
+
+    /* 作者信息栏 */
+    .author-row {
+      display: flex;
+      align-items: center;
+      gap: 11px;
+      margin-bottom: 14px;
+    }
+
+    .author-avatar {
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      object-fit: cover;
+    }
+
+    .author-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+    }
+
+    .author-name-row {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .author-name {
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-primary);
+    }
+
+    .author-badge {
+      width: 14px;
+      height: 14px;
+      background: #F59E0B;
+      color: white;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 9px;
+      font-weight: bold;
+    }
+
+    .post-meta {
+      font-size: 12px;
+      color: var(--text-secondary);
+    }
+
+    /* ================================================= */
+    /* 核心差异点：文字排版模式 (TYPOGRAPHY MODES)       */
+    /* ================================================= */
+
+    /* 0. 原始模式 (Current Baseline - dense wall of text) */
+    .post-body.mode-original {
+      font-size: 16px;
+      line-height: 1.6;
+      color: var(--text-primary);
+      text-align: left;
+      letter-spacing: 0;
+    }
+
+    /* 1. 方案 A：现代人文精排 (Modern Editorial) */
+    .post-body.mode-editorial {
+      font-size: 16.5px;
+      line-height: 1.76;
+      color: var(--text-primary);
+      text-align: justify;
+      text-justify: inter-ideograph;
+      letter-spacing: 0.25px;
+      display: flex;
+      flex-direction: column;
+      gap: 13px; /* 呼吸微段落间距 */
+    }
+
+    .mode-editorial .pangu-space {
+      margin: 0 0.18em;
+      font-family: var(--font-en);
+      font-weight: 500;
+    }
+
+    .mode-editorial .entity-keyword {
+      font-family: var(--font-en);
+      font-weight: 600;
+      color: var(--text-primary);
+      padding: 0 1px;
+    }
+
+    .mode-editorial .quote-inline {
+      color: var(--text-primary);
+      position: relative;
+    }
+
+    .mode-editorial .topic-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      background: var(--brand-light);
+      color: var(--brand);
+      padding: 1px 7px;
+      border-radius: 6px;
+      font-size: 14px;
+      font-weight: 500;
+      border: 1px solid var(--brand-border);
+      vertical-align: baseline;
+    }
+
+    /* 2. 方案 B：杂志与导语层级 (Magazine & Callout) */
+    .post-body.mode-magazine {
+      font-size: 16px;
+      line-height: 1.72;
+      color: var(--text-primary);
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .mode-magazine .lead-sentence {
+      font-size: 17.5px;
+      line-height: 1.68;
+      font-weight: 600;
+      color: var(--text-lead);
+      letter-spacing: 0.2px;
+      padding-bottom: 2px;
+    }
+
+    .mode-magazine .dialogue-callout {
+      background: var(--bg-card-quote);
+      border-left: 3.5px solid var(--brand-quote);
+      padding: 10px 14px;
+      border-radius: 0 10px 10px 0;
+      font-size: 15px;
+      line-height: 1.65;
+      color: var(--text-primary);
+      margin: 3px 0;
+    }
+
+    .mode-magazine .dialogue-callout .quote-speaker {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--brand-quote);
+      display: block;
+      margin-bottom: 3px;
+    }
+
+    .mode-magazine .hardware-chip {
+      background: var(--bg-tag);
+      border: 1px solid var(--border-subtle);
+      padding: 1px 6px;
+      border-radius: 5px;
+      font-family: var(--font-en);
+      font-size: 13.5px;
+      font-weight: 600;
+      color: var(--text-primary);
+      display: inline-block;
+      margin: 0 2px;
+    }
+
+    .mode-magazine .post-footer-meta {
+      display: flex;
+      justify-content: flex-end;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      color: var(--text-tertiary);
+      margin-top: 6px;
+      padding-top: 8px;
+      border-top: 1px dashed var(--border-subtle);
+    }
+
+    /* 3. 方案 C：呼吸微卡片流 (Bento & Cards) */
+    .post-body.mode-bento {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .mode-bento .bento-block {
+      background: var(--bg-card-subtle);
+      border-radius: 14px;
+      padding: 12px 14px;
+      font-size: 15.5px;
+      line-height: 1.7;
+      color: var(--text-primary);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .mode-bento .bento-block.highlight {
+      background: var(--brand-light);
+      border-color: var(--brand-border);
+    }
+
+    .mode-bento .bento-block.highlight .block-header {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--brand);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* 统计与联动三栏 Tab */
+    .stats-card {
+      background: var(--bg-card);
+      border-radius: 24px;
+      padding: 16px 18px;
+      border: 1px solid var(--border-subtle);
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.02);
+    }
+
+    .tabs-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border-bottom: 0.5px solid var(--border-subtle);
+      padding-bottom: 10px;
+    }
+
+    .tabs-group {
+      display: flex;
+      align-items: center;
+      gap: 20px;
+    }
+
+    .tab-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 5px;
+      cursor: pointer;
+    }
+
+    .tab-label {
+      font-size: 15px;
+      color: var(--text-secondary);
+      font-weight: 500;
+    }
+
+    .tab-item.active .tab-label {
+      color: var(--text-primary);
+      font-weight: 700;
+    }
+
+    .tab-indicator {
+      width: 24px;
+      height: 3px;
+      border-radius: 1.5px;
+      background: transparent;
+    }
+
+    .tab-item.active .tab-indicator {
+      background: var(--brand);
+    }
+
+    .sort-group {
+      display: flex;
+      gap: 6px;
+    }
+
+    .sort-badge {
+      font-size: 12px;
+      padding: 3px 8px;
+      border-radius: 12px;
+      color: var(--text-secondary);
+    }
+
+    .sort-badge.active {
+      color: var(--brand);
+      font-weight: 600;
+    }
+
+    /* 评论简写展示 */
+    .comment-mini {
+      display: flex;
+      gap: 10px;
+      padding-top: 14px;
+    }
+
+    .comment-avatar {
+      width: 32px;
+      height: 32px;
+      border-radius: 50%;
+    }
+
+    .comment-content {
+      flex: 1;
+    }
+
+    .comment-user {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--text-primary);
+      margin-bottom: 2px;
+    }
+
+    .comment-text {
+      font-size: 14px;
+      line-height: 1.5;
+      color: var(--text-primary);
+    }
+
+    .comment-meta {
+      font-size: 11px;
+      color: var(--text-tertiary);
+      margin-top: 4px;
+    }
+
+    /* 底部悬浮操作栏 */
+    .dock-container {
+      position: absolute;
+      bottom: 20px;
+      left: 16px;
+      right: 16px;
+      height: 54px;
+      background: rgba(255, 255, 255, 0.88);
+      backdrop-filter: blur(28px);
+      -webkit-backdrop-filter: blur(28px);
+      border-radius: 27px;
+      padding: 0 16px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      border: 1px solid rgba(255, 255, 255, 0.6);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.08);
+      z-index: 30;
+    }
+
+    [data-theme="dark"] .dock-container {
+      background: rgba(22, 29, 25, 0.88);
+      border-color: rgba(255, 255, 255, 0.1);
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
+    }
+
+    .dock-input {
+      font-size: 13px;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    .dock-actions {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      color: var(--text-primary);
+      font-size: 13px;
+    }
+
+    /* 说明与特色分析卡片 */
+    .spec-card {
+      background: #141B17;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 20px;
+      padding: 22px 24px;
+      max-width: 1680px;
+      width: 100%;
+      margin-top: 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 20px;
+    }
+
+    .spec-column h3 {
+      font-size: 16px;
+      font-weight: 700;
+      color: #EDF2EE;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .spec-column ul {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .spec-column li {
+      font-size: 13px;
+      color: #8E9A93;
+      line-height: 1.6;
+      position: relative;
+      padding-left: 14px;
+    }
+
+    .spec-column li::before {
+      content: "•";
+      position: absolute;
+      left: 0;
+      color: var(--brand);
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body data-theme="light">
+
+  <!-- 顶部控制控制板 -->
+  <header class="top-panel">
+    <div class="panel-left">
+      <h1>
+        <span>Fluo 微博正文排版设计原型</span>
+        <span class="badge-pill">ArkUI 高质感排版</span>
+      </h1>
+      <p>针对你手机上的实测微博（钟文泽长文），构思 3 套高品质中文/混排排版方案，解决原版「密不透风一大块黑字」的痛点。</p>
+    </div>
+
+    <div class="controls-row">
+      <div class="seg-group" id="theme-toggle">
+        <button class="seg-btn active" onclick="setTheme('light')">☀️ 浅色</button>
+        <button class="seg-btn" onclick="setTheme('dark')">🌙 深色</button>
+      </div>
+
+      <div class="seg-group" id="font-scale-group">
+        <button class="seg-btn" onclick="setFontScale('compact')">标准 15vp</button>
+        <button class="seg-btn active" onclick="setFontScale('normal')">舒适 16.5vp</button>
+        <button class="seg-btn" onclick="setFontScale('large')">大字 18vp</button>
+      </div>
+
+      <div class="seg-group">
+        <button class="toggle-chip active" id="chip-pangu" onclick="togglePangu()">
+          <span>✓</span> 盘古中英混排间距
+        </button>
+        <button class="toggle-chip active" id="chip-rhythm" onclick="toggleRhythm()">
+          <span>✓</span> 语义微段落呼吸
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- 三方案并排对比 -->
+  <main class="compare-container">
+
+    <!-- 方案 0：原版对照 (当前手机现状) -->
+    <div class="device-wrapper">
+      <div class="device-title-tag">
+        <span>当前手机现状（对照基准）</span>
+        <span class="tag-bubble">密集纯文本</span>
+      </div>
+      <div class="device-phone">
+        <div class="status-bar">
+          <span>03:41</span>
+          <div class="status-icons"><span>5G</span><span>100%</span></div>
+        </div>
+        <div class="nav-bar">
+          <div class="nav-back">‹</div>
+          <div class="nav-title">微博详情</div>
+          <div class="nav-share">⎋</div>
+        </div>
+
+        <div class="content-scroll">
+          <div class="post-card">
+            <div class="author-row">
+              <img class="author-avatar" src="https://tvax1.sinaimg.cn/crop.0.0.1080.1080.180/6cfb81cfly8h8v15g2s8cj20u00u041d.jpg" alt="avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'42\' height=\'42\'><rect width=\'42\' height=\'42\' fill=\'%23555\'/><text x=\'50%25\' y=\'55%25\' font-size=\'14\' fill=\'white\' text-anchor=\'middle\' dominant-baseline=\'middle\'>钟</text></svg>'">
+              <div class="author-info">
+                <div class="author-name-row">
+                  <span class="author-name">钟文泽</span>
+                  <span class="author-badge">V</span>
+                </div>
+                <div class="post-meta">31 分钟前 · 微博网页版</div>
+              </div>
+            </div>
+
+            <!-- 当前原版：一整大块黑字 -->
+            <div class="post-body mode-original">
+              我问我妈，今年要不要给她换一台 iPhone Duo。然后我把小米 18 Fold 拿给她，说尺寸大小跟这个差不多。我妈接过去感受了一下，说她还是喜欢 iPhone Air，不换 Duo 了。不得不说，iPhone Air 的体验满意度太高了，我身边好几个朋友都用 Air 评价非常好。我当时在 iPhone Air 上办了 eSIM，本想着评测之后就去营业厅换回实体卡，没想到这一用就是一年，到现在还天天高强度使用。手感带来的体验改善，要比很多功能升级还明显。
+            </div>
+          </div>
+
+          <!-- 统计与评论联动 Tab -->
+          <div class="stats-card">
+            <div class="tabs-header">
+              <div class="tabs-group">
+                <div class="tab-item"><span class="tab-label">转发 (6)</span><div class="tab-indicator"></div></div>
+                <div class="tab-item active"><span class="tab-label">评论 (101)</span><div class="tab-indicator"></div></div>
+                <div class="tab-item"><span class="tab-label">赞 (350)</span><div class="tab-indicator"></div></div>
+              </div>
+              <div class="sort-group">
+                <span class="sort-badge active">热度</span>
+                <span class="sort-badge">时间</span>
+              </div>
+            </div>
+            <div class="comment-mini">
+              <img class="comment-avatar" src="https://tvax1.sinaimg.cn/crop.0.0.1080.1080.180/6cfb81cfly8h8v15g2s8cj20u00u041d.jpg" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\'><rect width=\'32\' height=\'32\' fill=\'%23555\'/></svg>'">
+              <div class="comment-content">
+                <div class="comment-user">钟文泽</div>
+                <div class="comment-text">我爸听到我和我妈的对话，在旁边说：“我换” 🙋‍♂️</div>
+                <div class="comment-meta">29 分钟前</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dock-container">
+          <div class="dock-input">✏️ 说点什么...</div>
+          <div class="dock-actions"><span>♡ 350</span><span>⭐</span><span>💬 101</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 A：现代人文精排 (推荐方案) -->
+    <div class="device-wrapper">
+      <div class="device-title-tag">
+        <span>方案 A：现代人文精排</span>
+        <span class="tag-bubble rec">推荐 · 微信读书/少数派风</span>
+      </div>
+      <div class="device-phone">
+        <div class="status-bar">
+          <span>03:41</span>
+          <div class="status-icons"><span>5G</span><span>100%</span></div>
+        </div>
+        <div class="nav-bar">
+          <div class="nav-back">‹</div>
+          <div class="nav-title">微博详情</div>
+          <div class="nav-share">⎋</div>
+        </div>
+
+        <div class="content-scroll">
+          <div class="post-card">
+            <div class="author-row">
+              <img class="author-avatar" src="https://tvax1.sinaimg.cn/crop.0.0.1080.1080.180/6cfb81cfly8h8v15g2s8cj20u00u041d.jpg" alt="avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'42\' height=\'42\'><rect width=\'42\' height=\'42\' fill=\'%23555\'/><text x=\'50%25\' y=\'55%25\' font-size=\'14\' fill=\'white\' text-anchor=\'middle\' dominant-baseline=\'middle\'>钟</text></svg>'">
+              <div class="author-info">
+                <div class="author-name-row">
+                  <span class="author-name">钟文泽</span>
+                  <span class="author-badge">V</span>
+                </div>
+                <div class="post-meta">31 分钟前 · 微博网页版</div>
+              </div>
+            </div>
+
+            <!-- 方案 A 正文：盘古之白 + 呼吸分段 + 1.76x 黄金行高 + 两端对齐 -->
+            <div class="post-body mode-editorial" id="body-editorial">
+              <p>
+                我问我妈，今年要不要给她换一台<span class="pangu-space">iPhone Duo</span>。然后我把<span class="pangu-space">小米 18 Fold</span>拿给她，说尺寸大小跟这个差不多。
+              </p>
+              <p>
+                我妈接过去感受了一下，说她还是喜欢<span class="pangu-space">iPhone Air</span>，不换<span class="pangu-space">Duo</span>了。
+              </p>
+              <p>
+                不得不说，<span class="pangu-space">iPhone Air</span>的体验满意度太高了，我身边好几个朋友都用<span class="pangu-space">Air</span>评价非常好。我当时在<span class="pangu-space">iPhone Air</span>上办了<span class="pangu-space">eSIM</span>，本想着评测之后就去营业厅换回实体卡，没想到这一用就是一年，到现在还天天高强度使用。
+              </p>
+              <p style="font-weight: 500;">
+                手感带来的体验改善，要比很多功能升级还明显。
+              </p>
+            </div>
+          </div>
+
+          <!-- 统计与评论联动 Tab -->
+          <div class="stats-card">
+            <div class="tabs-header">
+              <div class="tabs-group">
+                <div class="tab-item"><span class="tab-label">转发 (6)</span><div class="tab-indicator"></div></div>
+                <div class="tab-item active"><span class="tab-label">评论 (101)</span><div class="tab-indicator"></div></div>
+                <div class="tab-item"><span class="tab-label">赞 (350)</span><div class="tab-indicator"></div></div>
+              </div>
+              <div class="sort-group">
+                <span class="sort-badge active">热度</span>
+                <span class="sort-badge">时间</span>
+              </div>
+            </div>
+            <div class="comment-mini">
+              <img class="comment-avatar" src="https://tvax1.sinaimg.cn/crop.0.0.1080.1080.180/6cfb81cfly8h8v15g2s8cj20u00u041d.jpg" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\'><rect width=\'32\' height=\'32\' fill=\'%23555\'/></svg>'">
+              <div class="comment-content">
+                <div class="comment-user">钟文泽</div>
+                <div class="comment-text">我爸听到我和我妈的对话，在旁边说：“我换” 🙋‍♂️</div>
+                <div class="comment-meta">29 分钟前</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dock-container">
+          <div class="dock-input">✏️ 说点什么...</div>
+          <div class="dock-actions"><span>♡ 350</span><span>⭐</span><span>💬 101</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 B：杂志导语与金句引文 -->
+    <div class="device-wrapper">
+      <div class="device-title-tag">
+        <span>方案 B：杂志与导语层级</span>
+        <span class="tag-bubble">强层级 · Medium/GQ 风格</span>
+      </div>
+      <div class="device-phone">
+        <div class="status-bar">
+          <span>03:41</span>
+          <div class="status-icons"><span>5G</span><span>100%</span></div>
+        </div>
+        <div class="nav-bar">
+          <div class="nav-back">‹</div>
+          <div class="nav-title">微博详情</div>
+          <div class="nav-share">⎋</div>
+        </div>
+
+        <div class="content-scroll">
+          <div class="post-card">
+            <div class="author-row">
+              <img class="author-avatar" src="https://tvax1.sinaimg.cn/crop.0.0.1080.1080.180/6cfb81cfly8h8v15g2s8cj20u00u041d.jpg" alt="avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'42\' height=\'42\'><rect width=\'42\' height=\'42\' fill=\'%23555\'/><text x=\'50%25\' y=\'55%25\' font-size=\'14\' fill=\'white\' text-anchor=\'middle\' dominant-baseline=\'middle\'>钟</text></svg>'">
+              <div class="author-info">
+                <div class="author-name-row">
+                  <span class="author-name">钟文泽</span>
+                  <span class="author-badge">V</span>
+                </div>
+                <div class="post-meta">31 分钟前 · 微博网页版</div>
+              </div>
+            </div>
+
+            <!-- 方案 B 正文：首句导语 + 对话引用块 + 硬件轻徽标 + 底部字数 -->
+            <div class="post-body mode-magazine" id="body-magazine">
+              <div class="lead-sentence">
+                我问我妈，今年要不要给她换一台 <span class="hardware-chip">iPhone Duo</span>。然后我把 <span class="hardware-chip">小米 18 Fold</span> 拿给她，说尺寸大小跟这个差不多。
+              </div>
+
+              <div class="dialogue-callout">
+                <span class="quote-speaker">妈妈的回答</span>
+                “我接过去感受了一下，说还是喜欢 iPhone Air，不换 Duo 了。”
+              </div>
+
+              <div>
+                不得不说，<span class="hardware-chip">iPhone Air</span> 的体验满意度太高了，我身边好几个朋友都用 Air 评价非常好。我当时在 iPhone Air 上办了 <span class="hardware-chip">eSIM</span>，本想着评测之后就去营业厅换回实体卡，没想到这一用就是一年，到现在还天天高强度使用。
+              </div>
+
+              <div style="font-weight: 600; color: var(--text-lead);">
+                手感带来的体验改善，要比很多功能升级还明显。
+              </div>
+
+              <div class="post-footer-meta">
+                <span>正文 172 字</span>
+                <span>•</span>
+                <span>预计阅读 35 秒</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- 统计与评论联动 Tab -->
+          <div class="stats-card">
+            <div class="tabs-header">
+              <div class="tabs-group">
+                <div class="tab-item"><span class="tab-label">转发 (6)</span><div class="tab-indicator"></div></div>
+                <div class="tab-item active"><span class="tab-label">评论 (101)</span><div class="tab-indicator"></div></div>
+                <div class="tab-item"><span class="tab-label">赞 (350)</span><div class="tab-indicator"></div></div>
+              </div>
+              <div class="sort-group">
+                <span class="sort-badge active">热度</span>
+                <span class="sort-badge">时间</span>
+              </div>
+            </div>
+            <div class="comment-mini">
+              <img class="comment-avatar" src="https://tvax1.sinaimg.cn/crop.0.0.1080.1080.180/6cfb81cfly8h8v15g2s8cj20u00u041d.jpg" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\'><rect width=\'32\' height=\'32\' fill=\'%23555\'/></svg>'">
+              <div class="comment-content">
+                <div class="comment-user">钟文泽</div>
+                <div class="comment-text">我爸听到我和我妈的对话，在旁边说：“我换” 🙋‍♂️</div>
+                <div class="comment-meta">29 分钟前</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dock-container">
+          <div class="dock-input">✏️ 说点什么...</div>
+          <div class="dock-actions"><span>♡ 350</span><span>⭐</span><span>💬 101</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 方案 C：呼吸微卡片流 (Bento & Cards) -->
+    <div class="device-wrapper">
+      <div class="device-title-tag">
+        <span>方案 C：呼吸微卡片流</span>
+        <span class="tag-bubble">年轻通透 · 即刻/Notion 风格</span>
+      </div>
+      <div class="device-phone">
+        <div class="status-bar">
+          <span>03:41</span>
+          <div class="status-icons"><span>5G</span><span>100%</span></div>
+        </div>
+        <div class="nav-bar">
+          <div class="nav-back">‹</div>
+          <div class="nav-title">微博详情</div>
+          <div class="nav-share">⎋</div>
+        </div>
+
+        <div class="content-scroll">
+          <div class="post-card">
+            <div class="author-row">
+              <img class="author-avatar" src="https://tvax1.sinaimg.cn/crop.0.0.1080.1080.180/6cfb81cfly8h8v15g2s8cj20u00u041d.jpg" alt="avatar" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'42\' height=\'42\'><rect width=\'42\' height=\'42\' fill=\'%23555\'/><text x=\'50%25\' y=\'55%25\' font-size=\'14\' fill=\'white\' text-anchor=\'middle\' dominant-baseline=\'middle\'>钟</text></svg>'">
+              <div class="author-info">
+                <div class="author-name-row">
+                  <span class="author-name">钟文泽</span>
+                  <span class="author-badge">V</span>
+                </div>
+                <div class="post-meta">31 分钟前 · 微博网页版</div>
+              </div>
+            </div>
+
+            <!-- 方案 C 正文：微卡片节奏流 -->
+            <div class="post-body mode-bento" id="body-bento">
+              <div class="bento-block">
+                我问我妈，今年要不要给她换一台 iPhone Duo。然后我把小米 18 Fold 拿给她，说尺寸大小跟这个差不多。我妈接过去感受了一下，说她还是喜欢 iPhone Air，不换 Duo 了。
+              </div>
+
+              <div class="bento-block highlight">
+                <div class="block-header">
+                  <span>✦</span> 体验核心
+                </div>
+                不得不说，iPhone Air 的体验满意度太高了，我身边好几个朋友都用 Air 评价非常好。我当时办了 eSIM，本想着评测之后就换回实体卡，没想到这一用就是一年。
+              </div>
+
+              <div class="bento-block" style="font-weight: 600;">
+                手感带来的体验改善，要比很多功能升级还明显。
+              </div>
+            </div>
+          </div>
+
+          <!-- 统计与评论联动 Tab -->
+          <div class="stats-card">
+            <div class="tabs-header">
+              <div class="tabs-group">
+                <div class="tab-item"><span class="tab-label">转发 (6)</span><div class="tab-indicator"></div></div>
+                <div class="tab-item active"><span class="tab-label">评论 (101)</span><div class="tab-indicator"></div></div>
+                <div class="tab-item"><span class="tab-label">赞 (350)</span><div class="tab-indicator"></div></div>
+              </div>
+              <div class="sort-group">
+                <span class="sort-badge active">热度</span>
+                <span class="sort-badge">时间</span>
+              </div>
+            </div>
+            <div class="comment-mini">
+              <img class="comment-avatar" src="https://tvax1.sinaimg.cn/crop.0.0.1080.1080.180/6cfb81cfly8h8v15g2s8cj20u00u041d.jpg" alt="" onerror="this.src='data:image/svg+xml,<svg xmlns=\'http://www.w3.org/2000/svg\' width=\'32\' height=\'32\'><rect width=\'32\' height=\'32\' fill=\'%23555\'/></svg>'">
+              <div class="comment-content">
+                <div class="comment-user">钟文泽</div>
+                <div class="comment-text">我爸听到我和我妈的对话，在旁边说：“我换” 🙋‍♂️</div>
+                <div class="comment-meta">29 分钟前</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dock-container">
+          <div class="dock-input">✏️ 说点什么...</div>
+          <div class="dock-actions"><span>♡ 350</span><span>⭐</span><span>💬 101</span></div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- 详细排版特性与技术落地解析 -->
+  <section class="spec-card">
+    <div class="spec-column">
+      <h3>方案 A：现代人文精排 (推荐方案)</h3>
+      <ul>
+        <li><strong>盘古之白 (Pangu Spacing)</strong>：自动在中英文字符、阿拉伯数字之间插入 0.18em 的呼吸空隙，彻底消除西文单词（如 iPhone Air）挤贴汉字的粘稠感。</li>
+        <li><strong>自然语义分段</strong>：按照原文自然句群划分呼吸微段落，赋予 13vp 段间距，阅读视线自然落位，不累眼。</li>
+        <li><strong>黄金行距比 (1.76x)</strong>：16.5vp 字号搭配 29vp 行高与两端对齐（Justify），长句折行边缘平整，没有大缺口。</li>
+        <li><strong>无侵入设计</strong>：保留纯文字的自然高级感，不加过重装饰，耐读度极高。</li>
+      </ul>
+    </div>
+
+    <div class="spec-column">
+      <h3>方案 B：杂志与导语层级</h3>
+      <ul>
+        <li><strong>首句导语化 (Lead Statement)</strong>：自动将第一句（或设问句）微放大至 17.5vp 并提权为 Medium 字重，作为全篇视觉抓手。</li>
+        <li><strong>双引号对话引文 (Dialogue Callout)</strong>：识别文中的对话/言论，赋予左侧 3.5vp 鼠尾草绿品牌饰线与微淡底衬，故事感十足。</li>
+        <li><strong>设备与专有名词轻徽标</strong>：数码机型、品牌实体自动浅灰底徽标化，科技感更强。</li>
+        <li><strong>阅读用时估算</strong>：文末以淡灰色提供“172 字 · 约 35 秒”，增强精致感。</li>
+      </ul>
+    </div>
+
+    <div class="spec-column">
+      <h3>方案 C：呼吸微卡片流 (Bento)</h3>
+      <ul>
+        <li><strong>逻辑分块卡片化</strong>：将长微博按背景、体验、结论分拆为独立圆角微卡片。</li>
+        <li><strong>重点模块提亮</strong>：高满意度或金句段落赋予淡绿半透明卡片底衬，强化视觉重心。</li>
+        <li><strong>结构感极强</strong>：适合信息流快速扫读，3 秒即可吸收博文核心信息。</li>
+      </ul>
+    </div>
+  </section>
+
+  <script>
+    function setTheme(mode) {
+      document.body.setAttribute('data-theme', mode);
+      document.querySelectorAll('#theme-toggle .seg-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.textContent.includes(mode === 'light' ? '浅色' : '深色'));
+      });
+    }
+
+    function setFontScale(scale) {
+      const bodies = [document.getElementById('body-editorial'), document.getElementById('body-magazine')];
+      document.querySelectorAll('#font-scale-group .seg-btn').forEach(btn => {
+        btn.classList.remove('active');
+        if (scale === 'compact' && btn.textContent.includes('15vp')) btn.classList.add('active');
+        if (scale === 'normal' && btn.textContent.includes('16.5vp')) btn.classList.add('active');
+        if (scale === 'large' && btn.textContent.includes('18vp')) btn.classList.add('active');
+      });
+
+      const fsMap = { compact: '15px', normal: '16.5px', large: '18px' };
+      const lhMap = { compact: '26px', normal: '29px', large: '32px' };
+
+      bodies.forEach(b => {
+        if (b) {
+          b.style.fontSize = fsMap[scale];
+          b.style.lineHeight = lhMap[scale];
+        }
+      });
+    }
+
+    let panguEnabled = true;
+    function togglePangu() {
+      panguEnabled = !panguEnabled;
+      const chip = document.getElementById('chip-pangu');
+      chip.classList.toggle('active', panguEnabled);
+      chip.querySelector('span').textContent = panguEnabled ? '✓' : '✕';
+      document.querySelectorAll('.pangu-space').forEach(el => {
+        el.style.margin = panguEnabled ? '0 0.18em' : '0';
+      });
+    }
+
+    let rhythmEnabled = true;
+    function toggleRhythm() {
+      rhythmEnabled = !rhythmEnabled;
+      const chip = document.getElementById('chip-rhythm');
+      chip.classList.toggle('active', rhythmEnabled);
+      chip.querySelector('span').textContent = rhythmEnabled ? '✓' : '✕';
+      const editorial = document.getElementById('body-editorial');
+      if (editorial) {
+        editorial.style.gap = rhythmEnabled ? '13px' : '4px';
+      }
+    }
+  </script>
+</body>
+</html>

@@ -103,12 +103,15 @@ let _matSegIdleFlat: uiMaterial.Material | undefined = undefined;
 
 /** Application accent is kept in AppStorage so every page reads one source of truth. */
 function currentAccent(): string {
-  const saved: string = AppStorage.get<string>('appAccentColor') ?? '#E6162D';
-  if (saved === '#E6162D' || saved === '#007DFF' || saved === '#7856FF'
+  const saved: string = AppStorage.get<string>('appAccentColor') ?? '#4EAA78';
+  if (saved === '#E6162D') {
+    return '#4EAA78';
+  }
+  if (saved === '#4EAA78' || saved === '#007DFF' || saved === '#7856FF'
     || saved === '#00A870' || saved === '#F59E0B') {
     return saved;
   }
-  return '#E6162D';
+  return '#4EAA78';
 }
 
 function accentAlpha(alpha: string): string {
@@ -698,6 +701,13 @@ export class Theme {
   static bg(isDark: boolean): string { return isDark ? '#101114' : '#F2F4F7'; }
   static bgCard(isDark: boolean): string { return isDark ? '#1B1E24' : '#FFFFFF'; }
   static bgElevated(isDark: boolean): string { return isDark ? '#252A33' : '#FFFFFF'; }
+  static bgSubCard(isDark: boolean): string { return isDark ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.035)'; }
+  static cardBorder(isDark: boolean): string { return isDark ? 'rgba(255, 255, 255, 0.07)' : 'rgba(0, 0, 0, 0.06)'; }
+  static brandLight(isDark: boolean): string { return isDark ? 'rgba(78, 170, 120, 0.18)' : 'rgba(78, 170, 120, 0.12)'; }
+  static brandBorder(isDark: boolean): string { return isDark ? 'rgba(78, 170, 120, 0.35)' : 'rgba(78, 170, 120, 0.28)'; }
+  static feedCardShadow(isDark: boolean): GlassShadowOptions {
+    return { radius: 14, color: isDark ? '#40000000' : '#0a000000', offsetY: 3 };
+  }
   // v1.15.9 弹窗卡片背景：高不透明度纯色（替代磨砂玻璃 systemMaterial，避免暗蒙层+模糊叠加泛白；配合弱蒙层+强阴影产生浮起层次）
   // v1.18 降低沉浸光感透出：alpha F2(95%) → F8(97.6%) → FA(98%)，弹窗更实、材质光感更收敛
   // v1.19 方案B(层次光感)：深色底提亮为墨蓝 #232832，配合顶部高光边+双层阴影+降透蒙层营造浮起光感，文字对比度同步提升
@@ -752,7 +762,7 @@ export class Theme {
   static iconPrimary(isDark: boolean): string { return isDark ? '#F0F2F5' : '#1A1A1A'; }
   // 分割线
   static divider(isDark: boolean): string { return isDark ? '#2E2E33' : '#EBEDF0'; }
-  // 应用强调色：默认微博红，可由「软件设置」中的主题色即时覆盖。
+  // 应用强调色：默认鼠尾草/薄荷绿，可由「软件设置」中的主题色即时覆盖。
   static brand(): string { return currentAccent(); }
   /**
    * 分段胶囊选中文字色（沉浸光感恒开启）：
@@ -764,22 +774,22 @@ export class Theme {
   // 强调背景
   static brandBg(isDark: boolean): string {
     const accent: string = Theme.brand();
+    if (accent === '#4EAA78' || accent === '#00A870') {
+      return isDark ? '#1E4438' : '#EAF6EF';
+    }
     if (accent === '#007DFF') {
       return isDark ? '#1F3555' : '#E7F2FF';
     }
     if (accent === '#7856FF') {
       return isDark ? '#33295A' : '#F0ECFF';
     }
-    if (accent === '#00A870') {
-      return isDark ? '#1E4438' : '#E4F7EF';
-    }
     if (accent === '#F59E0B') {
       return isDark ? '#4A391D' : '#FFF4DC';
     }
-    return isDark ? '#45232A' : '#FCECEE';
+    return isDark ? '#1E4438' : '#EAF6EF';
   }
-  // 置顶徽章（柔红底白字，深色降一档明度避免刺眼；与精品蓝 badge 语义区分）
-  static badgePin(isDark: boolean): string { return isDark ? '#E06161' : '#FF8A8A'; }
+  // 置顶徽章（鼠尾草薄荷绿底白字，取代红调）
+  static badgePin(isDark: boolean): string { return isDark ? '#4EAA78' : '#5BB574'; }
   static glassLine(isDark: boolean): string { return isDark ? '#4AFFFFFF' : '#80FFFFFF'; }
   // 危险色
   static danger(): string { return '#F5222D'; }
